@@ -3,15 +3,69 @@ import pygame
 
 import gymnasium as gym
 from gymnasium import spaces
+from gymnasium.spaces import Dict, Box, Discrete
+
+class AgentsAccount:
+    def __init__(self, num_of_currencies = 3, start_amount = 1000.0, currency_names = ['USD', 'EUR', 'RUB']):
+        self.num_of_currencies = num_of_currencies
+        self.start_amount = start_amount 
+        
+        self.currency_names = currency_names
+        self.personal_currencies = dict()
+        self.reset() # reset all repsonal currencies        
+        
+    def reset(self):    
+        for i in range(self.num_of_currencies):
+            if i == 0:
+                self.personal_currencies[self.currency_names[i]] = self.start_amount
+            else:
+                self.personal_currencies[self.currency_names[i]] = 0.0 
+                
+    def get_total_wealth(self):
+        pass
+        
+    def reserve_curr_for_broker(self, currency_amount): # take some amount of certain currency -> {'USD' : 110}
+        # currency_amount = {currency_name : amount} for example {"USD" : 100}
+        for currency, amount in currency_amount.items():
+            if self.personal_currencies[currency] >= amount: # only if we have it
+                self.personal_currencies[currency] -= amount
+                return {currency : amount}
+            
+        return None    
+        
+    def adopt_curr_from_broker(self, curr_amount):  # curr_amount = {'USD' : 110}
+        for currency, amount in curr_amount.items():
+            self.personal_currencies[currency] += amount
+            
+    def get_wallet_state(self):
+        return self.personal_currencies
+    
+                    
+            
+    
+
+
+
 
 
 #class GridWorldEnv(gym.Env):
 class TraderEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, size=5):
+    def __init__(self, render_mode=None, size=5, num_of_currencies = 3, buy_amount_max = 999):
         self.size = size  # The size of the square grid
         self.window_size = 512  # The size of the PyGame window
+        
+        self.num_of_currencies = num_of_currencies # total amount of currencies
+        self.buy_amount_max = buy_amount_max # how many on target currency to buy
+        
+        
+        self.currency_names = ['USD', 'EUR', 'RUB']
+        self.agents_account = AgentsAccount(num_of_currencies = 3, start_amount = 1000.0, currency_names = self.currency_names) # create personal agent's wallet with several currencies
+        
+        
+        
+        
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
@@ -22,8 +76,20 @@ class TraderEnv(gym.Env):
             }
         )
 
-        # We have 4 actions, corresponding to "right", "up", "left", "down"
-        self.action_space = spaces.Discrete(4)
+        # We have 2 actions, 0 - do nothing, 1 - exchange
+        #self.action_space = spaces.Discrete(4)
+        self.action_space = Dict(
+                                    {"Action_type" : Discrete(2),  # {0,1}
+                                    "Exchangable_currency" : Dict(
+                                                                    {"Source_curr" : Discrete(self.num_of_currencies),  # {0,1,2} one of them
+                                                                    "Target_curr" : Discrete(self.num_of_currencies)
+                                                                    }
+                                                                ),
+                                    "Amount_to_buy": Discrete(self.buy_amount_max, start = 1)                                    
+                                    
+                                    }                
+        )
+        
 
         """
         The following dictionary maps abstract actions from `self.action_space` to
@@ -83,6 +149,13 @@ class TraderEnv(gym.Env):
         return observation, info
 
     def step(self, action):
+    #Format of action:
+    #OrderedDict([('Action_type', 0),
+    #         ('Amount_to_buy', 899),
+    #         ('Exchangable_currency',
+    #          OrderedDict([('Source_curr', 1), ('Target_curr', 1)]))])
+    
+    
         # Map the action (element of {0,1,2,3}) to the direction we walk in
         direction = self._action_to_direction[action]
         # We use `np.clip` to make sure we don't leave the grid
