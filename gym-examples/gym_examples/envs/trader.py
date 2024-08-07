@@ -3,7 +3,7 @@ import pygame
 
 import gymnasium as gym
 from gymnasium import spaces
-from gymnasium.spaces import Dict, Box, Discrete
+#from gymnasium.spaces import Dict, Box, Discrete
 import random
 
 
@@ -42,8 +42,8 @@ class Market: # params relatively to USD only
         #print('old course', self.USD_EUR)
         self.USD_EUR += random.uniform(- self.USD_EUR_volatility,+ self.USD_EUR_volatility)
         self.USD_RUB += random.uniform(- self.USD_RUB_volatility,+ self.USD_RUB_volatility)
-        print('new course', self.USD_EUR)
-        #self.update_course_mtx()
+        #print('new course', self.USD_EUR)
+        self.update_course_mtx()
         
     def get_course_mtx(self):
         return self.currency_mtx
@@ -120,23 +120,36 @@ class TraderEnv(gym.Env):
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
+        #self.observation_space = spaces.Dict(
+        #    {
+        #        "agent": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+        #        "target": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+        #    }
+        #)
+        
         self.observation_space = spaces.Dict(
             {
-                "agent": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-                "target": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+                "Wallet": spaces.Dict(
+                                        {"USD" : spaces.Box(0, 999999, shape=(1,), dtype=float),
+                                        "EUR" : spaces.Box(0, 999999, shape=(1,), dtype=float),
+                                        "RUB" : spaces.Box(0, 999999, shape=(1,), dtype=float)
+                                        }
+                                    ),
+                "Market": spaces.Box(0, 9999, shape=(self.num_of_currencies,self.num_of_currencies), dtype=float),
             }
         )
+        
 
         # We have 2 actions, 0 - do nothing, 1 - exchange
         #self.action_space = spaces.Discrete(4)
-        self.action_space = Dict(
-                                    {"Action_type" : Discrete(2),  # {0,1}
-                                    "Exchangable_currency" : Dict(
-                                                                    {"Source_curr" : Discrete(self.num_of_currencies),  # {0,1,2} one of them
-                                                                    "Target_curr" : Discrete(self.num_of_currencies)
+        self.action_space = spaces.Dict(
+                                    {"Action_type" : spaces.Discrete(2),  # {0,1}
+                                    "Exchangable_currency" : spaces.Dict(
+                                                                    {"Source_curr" : spaces.Discrete(self.num_of_currencies),  # {0,1,2} one of them
+                                                                    "Target_curr" : spaces.Discrete(self.num_of_currencies)
                                                                     }
                                                                 ),
-                                    "Amount_to_buy": Discrete(self.buy_amount_max, start = 1)                                    
+                                    "Amount_to_buy": spaces.Discrete(self.buy_amount_max, start = 1)                                    
                                     
                                     }                
         )
@@ -168,14 +181,11 @@ class TraderEnv(gym.Env):
         self.clock = None
 
     def _get_obs(self):
-    	return {"agent": self._agent_location, "target": self._target_location}
+    	#return {"agent": self._agent_location, "target": self._target_location}
+    	return {"Wallet": self.agents_account.get_wallet_state(), "Market": self.market.get_course_mtx()}
 
     def _get_info(self):
-    	return {
-            "distance": np.linalg.norm(
-                self._agent_location - self._target_location, ord=1
-                    )
-                }
+    	return self.agents_account.get_wallet_state()
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
