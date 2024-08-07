@@ -4,6 +4,55 @@ import pygame
 import gymnasium as gym
 from gymnasium import spaces
 from gymnasium.spaces import Dict, Box, Discrete
+import random
+
+
+
+
+class Market: # params relatively to USD only
+    def __init__(self, num_of_currencies = 3, currency_names = ['USD', 'EUR', 'RUB']):
+        self.currency_names = currency_names         
+    	
+    	#####
+    	#Currency params
+        self.USD_EUR = 0.92
+        self.USD_RUB = 85.74
+        
+        self.USD_EUR_volatility = 0.1
+        self.USD_RUB_volatility = 5
+        #####
+        self.currency_mtx = np.eye(len(currency_names))
+        self.update_course_mtx()  
+            
+    def update_course_mtx(self):
+        # make 1st row
+        # self.currency_mtx = np.eye(len(currency_names))
+        self.currency_mtx[0 , 1] = self.USD_EUR
+        self.currency_mtx[0 , 2] = self.USD_RUB
+        # make other rows
+        for row in range(self.currency_mtx.shape[0]):    
+            for col in range (self.currency_mtx.shape[1]):
+                if row == 0 and row != col:
+                    self.currency_mtx[col, row] = 1.0 / self.currency_mtx[row, col]
+        
+                if row != 0 and col != 0 and row != col:
+                    self.currency_mtx[row, col] = self.currency_mtx[row, 0] * self.currency_mtx[0, col]
+                    
+    def update_cources(self):
+        #print('old course', self.USD_EUR)
+        self.USD_EUR += random.uniform(- self.USD_EUR_volatility,+ self.USD_EUR_volatility)
+        self.USD_RUB += random.uniform(- self.USD_RUB_volatility,+ self.USD_RUB_volatility)
+        print('new course', self.USD_EUR)
+        #self.update_course_mtx()
+        
+    def get_course_mtx(self):
+        return self.currency_mtx
+        
+        
+        
+        
+
+
 
 class AgentsAccount:
     def __init__(self, num_of_currencies = 3, start_amount = 1000.0, currency_names = ['USD', 'EUR', 'RUB']):
@@ -61,7 +110,9 @@ class TraderEnv(gym.Env):
         
         
         self.currency_names = ['USD', 'EUR', 'RUB']
+        #CREATING OBJECTS
         self.agents_account = AgentsAccount(num_of_currencies = 3, start_amount = 1000.0, currency_names = self.currency_names) # create personal agent's wallet with several currencies
+        self.market = Market(num_of_currencies = 3, currency_names = self.currency_names)
         
         
         
