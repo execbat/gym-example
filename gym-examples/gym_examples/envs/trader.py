@@ -53,7 +53,7 @@ class Broker:
             if self.currency_names[i_key] == "USD":
                 total_wealth += i_val
             else:
-                total_wealth += i_val * actual_course_mtx[USD_idx, i_key]
+                total_wealth += i_val * actual_course_mtx[i_key, USD_idx]
         
         return total_wealth
         
@@ -250,7 +250,9 @@ class TraderEnv(gym.Env):
         return observation
 
     def _get_info(self):
-    	return {"Wallet": self.agents_account.get_wallet_state(), "Market": self.market.get_course_mtx()}
+        idx_wallet = self.agents_account.get_wallet_state_idx() # Get current wallet state in idx format of keys
+        total_wealth = self.broker.get_total_wealth(idx_wallet) # Calculate total wealth of Agents wallet. All converted to "USD"
+        return {"Wallet": self.agents_account.get_wallet_state(), "Market": self.market.get_course_mtx(), "Total_wealth" : total_wealth}
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
@@ -282,11 +284,12 @@ class TraderEnv(gym.Env):
         amount = action["Amount"]
         
         penalty = 0
+        deal_completed_reward = 0
         while True:
             
             # CHECKING IF CHANGING THE DIFFERENT CURRENCIES
             if source_curr_idx == target_curr_idx:
-                penalty = -10 # penalty because agent trying to exchange the same currencies. change to global par
+                penalty = -100 # penalty because agent trying to exchange the same currencies. change to global par
                 break        
         
             # FIGURING OUT HOW MANY SOURCE CURRENCY TO BE PROCESSED
@@ -301,7 +304,7 @@ class TraderEnv(gym.Env):
             # CHECK IF I HAVE ENOUGH TO SELL
             reserved_amount_to_sell = self.agents_account.reserve_curr_for_broker(currency_amount = curr_amount_to_sell)
             if reserved_amount_to_sell is None:
-                penalty = -10 # penalty because agent trying to sell more than he has in his wallet. change to global par
+                penalty = -100 # penalty because agent trying to sell more than he has in his wallet. change to global par
                 break # no sense to proceed due to incorrect amount to sell.
                 
             # EXCHANGE SOURCE CURRENCY TO TARGET CURRENCY WITH BROKER
@@ -311,17 +314,25 @@ class TraderEnv(gym.Env):
             self.agents_account.adopt_curr_from_broker(exchanged_amount_by_broker)
             
             # IF YOU REACHED THIS POINT, THEN EXCHANGE HAS BEEN SUCCESSFULL. AND WE NEED TO GET OUT FROM while loop anyway.
+            deal_completed_reward += 100
             break
         
         
-        # UPDATE MARKET STATE TO GET NEW OBSERVATION
-        self.market.update_cources()
+        # GET INFO. INFO CONTAINS total_wealth METRICS.
+        info = self._get_info() # {"Wallet": self.agents_account.get_wallet_state(), "Market": self.market.get_course_mtx(), "Total_wealth" : total_wealth}
         
-        observation = self._get_obs()
-        reward = total_wealth + penalty # TODO create total wealth method for Broker class 
+        # CALCULATE REWARD
+        #idx_wallet = self.agents_account.get_wallet_state_idx() # Get current wallet state in idx format of keys
+        #total_wealth = self.broker.get_total_wealth(idx_wallet) # Calculate total wealth of Agents wallet. All converted to "USD"
+        total_wealth = info["Total_wealth"]
+        reward = total_wealth + penalty + deal_completed_reward # TOTAL STEP REWARD
+        
         terminated = False
         truncated = False
-        info = self._get_info() # TODO add total wealth into info
+                
+        # UPDATE MARKET STATE TO GET NEW OBSERVATION
+        self.market.update_cources()        
+        observation = self._get_obs()
         
         return observation, reward, terminated, truncated, info 
         
