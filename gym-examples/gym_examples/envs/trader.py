@@ -6,7 +6,7 @@ from gymnasium import spaces
 #from gymnasium.spaces import Dict, Box, Discrete
 import random
 
-
+np.set_printoptions(suppress=True,precision=5)
 
 
 class Market: # params relatively to USD only
@@ -21,7 +21,7 @@ class Market: # params relatively to USD only
         self.USD_EUR_volatility = 0.1
         self.USD_RUB_volatility = 5
         #####
-        self.currency_mtx = np.eye(len(currency_names))
+        self.currency_mtx = np.eye(len(currency_names), dtype=float)
         self.update_course_mtx()  
             
     def update_course_mtx(self):
@@ -116,29 +116,14 @@ class TraderEnv(gym.Env):
         
         
         
-        
-
-        # Observations are dictionaries with the agent's and the target's location.
-        # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
         #self.observation_space = spaces.Dict(
         #    {
-        #        "agent": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-        #        "target": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+        #        #"Wallet": spaces.Box(0.0, 9999.0, shape=(1,self.num_of_currencies), dtype=float),
+        #        #"Market": spaces.Box(0.0, 9999.0, shape=(self.num_of_currencies,self.num_of_currencies), dtype=float),
+        #        
         #    }
         #)
-        
-        self.observation_space = spaces.Dict(
-            {
-                "Wallet": spaces.Dict(
-                                        {"USD" : spaces.Box(0, 999999, shape=(1,), dtype=float),
-                                        "EUR" : spaces.Box(0, 999999, shape=(1,), dtype=float),
-                                        "RUB" : spaces.Box(0, 999999, shape=(1,), dtype=float)
-                                        }
-                                    ),
-                "Market": spaces.Box(0, 9999, shape=(self.num_of_currencies,self.num_of_currencies), dtype=float),
-            }
-        )
-        
+        self.observation_space = spaces.Box(0.0, 9999.0, shape=(self.num_of_currencies + 1,self.num_of_currencies), dtype=float)
 
         # We have 2 actions, 0 - do nothing, 1 - exchange
         #self.action_space = spaces.Discrete(4)
@@ -181,11 +166,18 @@ class TraderEnv(gym.Env):
         self.clock = None
 
     def _get_obs(self):
-    	#return {"agent": self._agent_location, "target": self._target_location}
-    	return {"Wallet": self.agents_account.get_wallet_state(), "Market": self.market.get_course_mtx()}
+    	# convert wallet values from dict values into np array
+        wallet_dict = self.agents_account.get_wallet_state()
+        wallet_np_arr = np.fromiter(wallet_dict.values(), dtype=float)
+        course_mtx = self.market.get_course_mtx()
+        
+        observation = np.vstack((wallet_np_arr, course_mtx), dtype=float)    	
+    	    	   	
+    	#return {"Wallet": wallet_np_arr, "Market": self.market.get_course_mtx()}
+        return observation
 
     def _get_info(self):
-    	return self.agents_account.get_wallet_state()
+    	return {"Wallet": self.agents_account.get_wallet_state(), "Market": self.market.get_course_mtx()}
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
