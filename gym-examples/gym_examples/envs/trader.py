@@ -9,6 +9,45 @@ import random
 np.set_printoptions(suppress=True,precision=5)
 
 
+class Broker:
+    def __init__(self, market = None, currency_names = ['USD', 'EUR', 'RUB'] 
+                ):
+        self.market = market
+        self.currency_names = currency_names
+        #self.received_to_exchange = {"USD" : 0}
+        #self.exchanged_to_give_back = {"USD" : 0}
+        
+    def exchange(self, to_sell = {0 : 0}, target_curr_idx = 2 ): # --> {2 : 110} as output. that should be adopted by AgentAccount
+        actual_course_mtx = self.market.get_course_mtx()
+        amount_to_sell = np.fromiter(to_sell.values(), dtype=float)[0]
+        source_curr_idx = int(np.fromiter(to_sell.keys(), dtype=float)[0])
+        return {target_curr_idx : actual_course_mtx[source_curr_idx, target_curr_idx] * amount_to_sell}
+                  
+    #  calc_amount_to_be_sold used with Action == 1. When we know how many to buy, but don't know how many to sell.
+    #  this function calculates what amount of Source currency you have to sell to buy Known amount of Target currency. 
+    def calc_amount_to_be_sold(self, exchange_details = {"Action_type" : 0,  # {-1,0,1}
+                                                        "Exchangable_currency" : {"Source_curr" : 0,  # {0,1,2} one of them
+                                                                                "Target_curr" : 0
+                                                                                },                                                               
+                                                        "Amount": 1 
+                                                        }                                                             
+                                                                
+                                ): # --> makes {0 : 123} currency and amount which sholu be taken from AgentsAccount for exchanging. where 0 - is idx of ['USD', 'EUR', 'RUB'] 
+        if exchange_details["Action_type"] != 1:
+            print('INCORRECT TYPE OF ACTION FOR THIS FUNCTION')
+        source_curr_idx = exchange_details["Exchangable_currency"]["Source_curr"]
+        target_curr_idx = exchange_details["Exchangable_currency"]["Target_curr"]
+        amount_to_buy = exchange_details["Amount"]
+        actual_course_mtx = self.market.get_course_mtx()
+        
+        amount_to_sell = actual_course_mtx[target_curr_idx, source_curr_idx] * amount_to_buy
+        
+        return {source_curr_idx : amount_to_sell}
+        
+        
+                     
+
+
 class Market: # params relatively to USD only
     def __init__(self, num_of_currencies = 3, currency_names = ['USD', 'EUR', 'RUB']):
         self.currency_names = currency_names         
@@ -38,7 +77,7 @@ class Market: # params relatively to USD only
                 if row != 0 and col != 0 and row != col:
                     self.currency_mtx[row, col] = self.currency_mtx[row, 0] * self.currency_mtx[0, col]
                     
-    def update_cources(self):
+    def update_cources(self): # used in every new STEP
         #print('old course', self.USD_EUR)
         self.USD_EUR += random.uniform(- self.USD_EUR_volatility,+ self.USD_EUR_volatility)
         self.USD_RUB += random.uniform(- self.USD_RUB_volatility,+ self.USD_RUB_volatility)
@@ -73,18 +112,23 @@ class AgentsAccount:
     def get_total_wealth(self):
         pass
         
-    def reserve_curr_for_broker(self, currency_amount): # take some amount of certain currency -> {'USD' : 110}
-        # currency_amount = {currency_name : amount} for example {"USD" : 100}
-        for currency, amount in currency_amount.items():
-            if self.personal_currencies[currency] >= amount: # only if we have it
-                self.personal_currencies[currency] -= amount
-                return {currency : amount}
+    def reserve_curr_for_broker(self, currency_amount): # take some amount of certain currency -> {0: 110}
+        # currency_amount = {currency_name_idx : amount} for example {0 : 100}, where 0 in idx of ['USD', 'EUR', 'RUB']
+        amount = np.fromiter(currency_amount.values(), dtype=float)[0]
+        curr_idx = int(np.fromiter(currency_amount.keys(), dtype=float)[0])
+        curr_name = self.currency_names[curr_idx]
+        
+        if self.personal_currencies[curr_name] >= amount: # only if we have it
+            self.personal_currencies[curr_name] -= amount
+            return {curr_idx : amount}
             
         return None    
         
-    def adopt_curr_from_broker(self, curr_amount):  # curr_amount = {'USD' : 110}
-        for currency, amount in curr_amount.items():
-            self.personal_currencies[currency] += amount
+    def adopt_curr_from_broker(self, currency_amount):  # curr_amount = {0 : 110}, where 0 in idx of ['USD', 'EUR', 'RUB']
+        amount = np.fromiter(currency_amount.values(), dtype=float)[0]
+        curr_idx = int(np.fromiter(currency_amount.keys(), dtype=float)[0])
+        curr_name = self.currency_names[curr_idx]           
+        self.personal_currencies[curr_name] += amount
             
     def get_wallet_state(self):
         return self.personal_currencies
@@ -113,6 +157,7 @@ class TraderEnv(gym.Env):
         #CREATING OBJECTS
         self.agents_account = AgentsAccount(num_of_currencies = 3, start_amount = 1000.0, currency_names = self.currency_names) # create personal agent's wallet with several currencies
         self.market = Market(num_of_currencies = 3, currency_names = self.currency_names)
+        self.broker = Broker(market = self.market, currency_names = self.currency_names)
         
         
         
@@ -128,13 +173,13 @@ class TraderEnv(gym.Env):
         # We have 2 actions, 0 - do nothing, 1 - exchange
         #self.action_space = spaces.Discrete(4)
         self.action_space = spaces.Dict(
-                                    {"Action_type" : spaces.Discrete(2),  # {0,1}
+                                    {"Action_type" : spaces.Discrete(3, start = -1),  # {-1,0,1}
                                     "Exchangable_currency" : spaces.Dict(
                                                                     {"Source_curr" : spaces.Discrete(self.num_of_currencies),  # {0,1,2} one of them
                                                                     "Target_curr" : spaces.Discrete(self.num_of_currencies)
                                                                     }
                                                                 ),
-                                    "Amount_to_buy": spaces.Discrete(self.buy_amount_max, start = 1)                                    
+                                    "Amount": spaces.Discrete(self.buy_amount_max, start = 1)                                    
                                     
                                     }                
         )
@@ -171,9 +216,7 @@ class TraderEnv(gym.Env):
         wallet_np_arr = np.fromiter(wallet_dict.values(), dtype=float)
         course_mtx = self.market.get_course_mtx()
         
-        observation = np.vstack((wallet_np_arr, course_mtx), dtype=float)    	
-    	    	   	
-    	#return {"Wallet": wallet_np_arr, "Market": self.market.get_course_mtx()}
+        observation = np.vstack((wallet_np_arr, course_mtx), dtype=float)
         return observation
 
     def _get_info(self):
