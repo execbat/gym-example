@@ -44,6 +44,19 @@ class Broker:
         
         return {source_curr_idx : amount_to_sell}
         
+    def get_total_wealth(self, agents_wallet_idx):
+        total_wealth = 0
+        actual_course_mtx = self.market.get_course_mtx()
+        
+        USD_idx = self.currency_names.index("USD")
+        for i_key, i_val in agents_wallet_idx.items():
+            if self.currency_names[i_key] == "USD":
+                total_wealth += i_val
+            else:
+                total_wealth += i_val * actual_course_mtx[USD_idx, i_key]
+        
+        return total_wealth
+        
         
                      
 
@@ -54,14 +67,27 @@ class Market: # params relatively to USD only
     	
     	#####
     	#Currency params
+        self.USD_EUR = 0.0
+        self.USD_RUB = 0.0
+        
+        self.USD_EUR_volatility = 0.0
+        self.USD_RUB_volatility = 0.0
+        #####
+        self.currency_mtx = None
+
+    
+    def reset(self):
+        #####
+    	#Currency params
         self.USD_EUR = 0.92
         self.USD_RUB = 85.74
         
         self.USD_EUR_volatility = 0.1
         self.USD_RUB_volatility = 5
         #####
-        self.currency_mtx = np.eye(len(currency_names), dtype=float)
+        self.currency_mtx = np.eye(len(self.currency_names), dtype=float)
         self.update_course_mtx()  
+    
             
     def update_course_mtx(self):
         # make 1st row
@@ -130,8 +156,12 @@ class AgentsAccount:
         curr_name = self.currency_names[curr_idx]           
         self.personal_currencies[curr_name] += amount
             
-    def get_wallet_state(self):
+    def get_wallet_state(self): # in currency_name mode, like "USD", "RUB"
         return self.personal_currencies
+        
+    def get_wallet_state_idx(self):
+        return dict(zip([self.currency_names.index(i_key) for i_key in self.personal_currencies.keys()], self.personal_currencies.values()))
+       
     
                     
             
@@ -225,16 +255,9 @@ class TraderEnv(gym.Env):
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
-
-        # Choose the agent's location uniformly at random
-        self._agent_location = self.np_random.integers(0, self.size, size=2, dtype=int)
-
-        # We will sample the target's location randomly until it does not coincide with the agent's location
-        self._target_location = self._agent_location
-        while np.array_equal(self._target_location, self._agent_location):
-            self._target_location = self.np_random.integers(
-                0, self.size, size=2, dtype=int
-            )
+        
+        # RESET MARKET TO INITIAL STATE
+        self.market.reset()
 
         observation = self._get_obs()
         info = self._get_info()
