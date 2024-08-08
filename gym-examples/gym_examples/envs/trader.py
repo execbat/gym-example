@@ -73,6 +73,12 @@ class Market: # params relatively to USD only
         self.USD_EUR_volatility = 0.0
         self.USD_RUB_volatility = 0.0
         #####
+        self.USD_EUR_limit_l = 0.0
+        self.USD_EUR_limit_h = 0.0
+        
+        self.USD_RUB_limit_l = 0.0
+        self.USD_RUB_limit_h = 0.0
+        
         self.currency_mtx = None
 
     
@@ -84,6 +90,13 @@ class Market: # params relatively to USD only
         
         self.USD_EUR_volatility = 0.1
         self.USD_RUB_volatility = 5
+        
+        self.USD_EUR_limit_l = 0.5
+        self.USD_EUR_limit_h = 1.5
+        
+        self.USD_RUB_limit_l = 50
+        self.USD_RUB_limit_h = 150
+        
         #####
         self.currency_mtx = np.eye(len(self.currency_names), dtype=float)
         self.update_course_mtx()  
@@ -105,9 +118,16 @@ class Market: # params relatively to USD only
                     
     def update_cources(self): # used in every new STEP
         #print('old course', self.USD_EUR)
-        self.USD_EUR += random.uniform(- self.USD_EUR_volatility,+ self.USD_EUR_volatility)
-        self.USD_RUB += random.uniform(- self.USD_RUB_volatility,+ self.USD_RUB_volatility)
+        USD_EUR_new_val = self.USD_EUR + random.uniform(- self.USD_EUR_volatility,+ self.USD_EUR_volatility)
+        if self.USD_EUR_limit_l < USD_EUR_new_val < self.USD_EUR_limit_h:
+            self.USD_EUR = USD_EUR_new_val
+        
+        
+        USD_RUB_new_val = self.USD_RUB + random.uniform(- self.USD_RUB_volatility,+ self.USD_RUB_volatility)
+        if USD_RUB_new_val > self.USD_RUB_limit_l and USD_RUB_new_val < self.USD_RUB_limit_h:
+            self.USD_RUB = USD_RUB_new_val
         #print('new course', self.USD_EUR)
+        
         self.update_course_mtx()
         
     def get_course_mtx(self):
@@ -260,6 +280,8 @@ class TraderEnv(gym.Env):
         
         # RESET MARKET TO INITIAL STATE
         self.market.reset()
+        # RESET AGENT'S WALLET
+        self.agents_account.reset()
 
         observation = self._get_obs()
         info = self._get_info()
