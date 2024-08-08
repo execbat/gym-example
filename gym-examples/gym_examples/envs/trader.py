@@ -190,12 +190,12 @@ class TraderEnv(gym.Env):
         the direction we will walk in if that action is taken.
         I.e. 0 corresponds to "right", 1 to "up" etc.
         """
-        self._action_to_direction = {
-            0: np.array([1, 0]),
-            1: np.array([0, 1]),
-            2: np.array([-1, 0]),
-            3: np.array([0, -1]),
-        }
+        #self._action_to_direction = {
+        #    0: np.array([1, 0]),
+        #    1: np.array([0, 1]),
+        #    2: np.array([-1, 0]),
+        #    3: np.array([0, -1]),
+        #}
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -245,29 +245,63 @@ class TraderEnv(gym.Env):
         return observation, info
 
     def step(self, action):
-    #Format of action:
-    #OrderedDict([('Action_type', 0),
-    #         ('Amount_to_buy', 899),
-    #         ('Exchangable_currency',
-    #          OrderedDict([('Source_curr', 1), ('Target_curr', 1)]))])
-    
-    
-        # Map the action (element of {0,1,2,3}) to the direction we walk in
-        direction = self._action_to_direction[action]
-        # We use `np.clip` to make sure we don't leave the grid
-        self._agent_location = np.clip(
-            self._agent_location + direction, 0, self.size - 1
-        )
-        # An episode is done iff the agent has reached the target
-        terminated = np.array_equal(self._agent_location, self._target_location)
-        reward = 1 if terminated else 0  # Binary sparse rewards
+    #{"Action_type" : 0,  # {-1,0,1}
+    # "Exchangable_currency" : {"Source_curr" : 0,  # {0,1,2} one of them
+    #                             "Target_curr" : 0
+    #                          },                                                               
+    # "Amount": 1 
+    #}  
+        
+        # Parse Action   
+        action_type = action["Action_type"]
+        source_curr_idx = int(action["Exchangable_currency"]["Source_curr"])
+        target_curr_idx = int(action["Exchangable_currency"]["Target_curr"])
+        amount = action["Amount"]
+        
+        penalty = 0
+        while True:
+            
+            # CHECKING IF CHANGING THE DIFFERENT CURRENCIES
+            if source_curr_idx == target_curr_idx:
+                penalty = -10 # penalty because agent trying to exchange the same currencies. change to global par
+                break        
+        
+            # FIGURING OUT HOW MANY SOURCE CURRENCY TO BE PROCESSED
+            if action_type == 1: # 1 = buy certain amount. I don't know how many source_currency to sell.        
+                curr_amount_to_sell = self.broker.calc_amount_to_be_sold(exchange_details = action) # calculate how many source_currency to sell : {0 : 100}
+            elif action_type == -1:
+                curr_amount_to_sell = {source_curr_idx : amount}
+            else:
+                penalty = -10 # penalty because agent prefer to don't do anything. change to global par
+                break # no sense to proceed due to Action_type is 0.          
+                        
+            # CHECK IF I HAVE ENOUGH TO SELL
+            reserved_amount_to_sell = self.agents_account.reserve_curr_for_broker(currency_amount = curr_amount_to_sell)
+            if reserved_amount_to_sell is None:
+                penalty = -10 # penalty because agent trying to sell more than he has in his wallet. change to global par
+                break # no sense to proceed due to incorrect amount to sell.
+                
+            # EXCHANGE SOURCE CURRENCY TO TARGET CURRENCY WITH BROKER
+            exchanged_amount_by_broker = self.broker.exchange(to_sell = reserved_amount_to_sell, target_curr_idx = target_curr_idx)
+            
+            # ADOPT EXCHANGED CURRENCY INTO AGENTS WALLET
+            self.agents_account.adopt_curr_from_broker(exchanged_amount_by_broker)
+            
+            # IF YOU REACHED THIS POINT, THEN EXCHANGE HAS BEEN SUCCESSFULL. AND WE NEED TO GET OUT FROM while loop anyway.
+            break
+        
+        
+        # UPDATE MARKET STATE TO GET NEW OBSERVATION
+        self.market.update_cources()
+        
         observation = self._get_obs()
-        info = self._get_info()
-
-        if self.render_mode == "human":
-            self._render_frame()
-
-        return observation, reward, terminated, False, info
+        reward = total_wealth + penalty # TODO create total wealth method for Broker class 
+        terminated = False
+        truncated = False
+        info = self._get_info() # TODO add total wealth into info
+        
+        return observation, reward, terminated, truncated, info 
+        
 
     def render(self):
         if self.render_mode == "rgb_array":
