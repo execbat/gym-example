@@ -1,0 +1,18 @@
+[2024-08-09 19:34:56,464][05362] Saving configuration to /home/evgenii/Documents/Jupyter_notebooks/SAMPLE_FACTORY/TRADER_PROJECT/train_dir/example_gymnasium_trader/config.json...
+[2024-08-09 19:34:56,473][05362] Rollout worker 0 uses device cpu
+[2024-08-09 19:34:56,473][05362] Rollout worker 1 uses device cpu
+[2024-08-09 19:34:56,473][05362] Rollout worker 2 uses device cpu
+[2024-08-09 19:34:56,473][05362] Rollout worker 3 uses device cpu
+[2024-08-09 19:34:56,474][05362] Rollout worker 4 uses device cpu
+[2024-08-09 19:34:56,474][05362] Rollout worker 5 uses device cpu
+[2024-08-09 19:34:56,474][05362] Rollout worker 6 uses device cpu
+[2024-08-09 19:34:56,474][05362] Rollout worker 7 uses device cpu
+[2024-08-10 20:46:02,971][05508] Saving configuration to /home/evgenii/Documents/Jupyter_notebooks/SAMPLE_FACTORY/TRADER_PROJECT/train_dir/example_gymnasium_trader/config.json...
+[2024-08-10 20:46:02,980][05508] Rollout worker 0 uses device cpu
+[2024-08-10 20:46:02,980][05508] Rollout worker 1 uses device cpu
+[2024-08-10 20:46:02,980][05508] Rollout worker 2 uses device cpu
+[2024-08-10 20:46:02,980][05508] Rollout worker 3 uses device cpu
+[2024-08-10 20:46:02,980][05508] Rollout worker 4 uses device cpu
+[2024-08-10 20:46:02,980][05508] Rollout worker 5 uses device cpu
+[2024-08-10 20:46:02,981][05508] Rollout worker 6 uses device cpu
+[2024-08-10 20:46:02,981][05508] Rollout worker 7 uses device cpu
