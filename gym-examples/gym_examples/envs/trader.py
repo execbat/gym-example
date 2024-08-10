@@ -25,19 +25,17 @@ class Broker:
                   
     #  calc_amount_to_be_sold used with Action == 1. When we know how many to buy, but don't know how many to sell.
     #  this function calculates what amount of Source currency you have to sell to buy Known amount of Target currency. 
-    def calc_amount_to_be_sold(self, exchange_details = {"Action_type" : 0,  # {-1,0,1}
-                                                        "Exchangable_currency" : {"Source_curr" : 0,  # {0,1,2} one of them
-                                                                                "Target_curr" : 0
-                                                                                },                                                               
-                                                        "Amount": 1 
-                                                        }                                                             
+    def calc_amount_to_be_sold(self, exchange_details = (1,  # {-1,0,1}
+                                                        (0,2), # {0,1,2} one of them
+                                                        1)
+                                                             
                                                                 
                                 ): # --> makes {0 : 123} currency and amount which sholu be taken from AgentsAccount for exchanging. where 0 - is idx of ['USD', 'EUR', 'RUB'] 
-        if exchange_details["Action_type"] != 1:
+        if exchange_details[0] != 1:
             print('INCORRECT TYPE OF ACTION FOR THIS FUNCTION')
-        source_curr_idx = exchange_details["Exchangable_currency"]["Source_curr"]
-        target_curr_idx = exchange_details["Exchangable_currency"]["Target_curr"]
-        amount_to_buy = exchange_details["Amount"]
+        source_curr_idx = exchange_details[1][0]
+        target_curr_idx = exchange_details[1][1]
+        amount_to_buy = exchange_details[2]
         actual_course_mtx = self.market.get_course_mtx()
         
         amount_to_sell = actual_course_mtx[target_curr_idx, source_curr_idx] * amount_to_buy
@@ -222,17 +220,25 @@ class TraderEnv(gym.Env):
 
         # We have 2 actions, 0 - do nothing, 1 - exchange
         #self.action_space = spaces.Discrete(4)
-        self.action_space = spaces.Dict(
-                                    {"Action_type" : spaces.Discrete(3, start = -1),  # {-1,0,1}
-                                    "Exchangable_currency" : spaces.Dict(
-                                                                    {"Source_curr" : spaces.Discrete(self.num_of_currencies),  # {0,1,2} one of them
-                                                                    "Target_curr" : spaces.Discrete(self.num_of_currencies)
-                                                                    }
-                                                                ),
-                                    "Amount": spaces.Discrete(self.buy_amount_max, start = 1)                                    
+        #self.action_space = spaces.Dict(
+        #                            {"Action_type" : spaces.Discrete(3, start = -1),  # {-1,0,1}
+        #                            "Exchangable_currency" : spaces.Dict(
+        #                                                            {"Source_curr" : spaces.Discrete(self.num_of_currencies),  # {0,1,2} one of them
+        #                                                            "Target_curr" : spaces.Discrete(self.num_of_currencies)
+        #                                                            }
+        #                                                        ),
+        #                            "Amount": spaces.Discrete(self.buy_amount_max, start = 1)                                    
+        #                            
+        #                            }                
+        #)
+        self.action_space = spaces.Tuple((
+                                    spaces.Discrete(3, start = -1),                                                                     # {-1,0,1} Action_type
+                                    spaces.Tuple((spaces.Discrete(self.num_of_currencies),  spaces.Discrete(self.num_of_currencies) )), # {0,1,2}  one of them
+                                    spaces.Discrete(999, start = 1)                                                                     #  Amount 1- 999
+                                    ))                                
                                     
-                                    }                
-        )
+                                                    
+        
         
 
         """
@@ -300,10 +306,10 @@ class TraderEnv(gym.Env):
     #}  
         
         # Parse Action   
-        action_type = action["Action_type"]
-        source_curr_idx = int(action["Exchangable_currency"]["Source_curr"])
-        target_curr_idx = int(action["Exchangable_currency"]["Target_curr"])
-        amount = action["Amount"]
+        action_type = action[0]
+        source_curr_idx = int(action[1][0])
+        target_curr_idx = int(action[1][1])
+        amount = action[2]
         
         penalty = 0
         deal_completed_reward = 0

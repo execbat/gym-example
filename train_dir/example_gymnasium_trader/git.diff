@@ -1,0 +1,52 @@
+diff --git a/gym-examples/gym_examples/envs/__pycache__/trader.cpython-39.pyc b/gym-examples/gym_examples/envs/__pycache__/trader.cpython-39.pyc
+index 7212552..f532c6b 100644
+Binary files a/gym-examples/gym_examples/envs/__pycache__/trader.cpython-39.pyc and b/gym-examples/gym_examples/envs/__pycache__/trader.cpython-39.pyc differ
+diff --git a/gym-examples/gym_examples/envs/trader.py b/gym-examples/gym_examples/envs/trader.py
+index 9a8a32d..5a8213f 100644
+--- a/gym-examples/gym_examples/envs/trader.py
++++ b/gym-examples/gym_examples/envs/trader.py
+@@ -222,17 +222,25 @@ class TraderEnv(gym.Env):
+ 
+         # We have 2 actions, 0 - do nothing, 1 - exchange
+         #self.action_space = spaces.Discrete(4)
+-        self.action_space = spaces.Dict(
+-                                    {"Action_type" : spaces.Discrete(3, start = -1),  # {-1,0,1}
+-                                    "Exchangable_currency" : spaces.Dict(
+-                                                                    {"Source_curr" : spaces.Discrete(self.num_of_currencies),  # {0,1,2} one of them
+-                                                                    "Target_curr" : spaces.Discrete(self.num_of_currencies)
+-                                                                    }
+-                                                                ),
+-                                    "Amount": spaces.Discrete(self.buy_amount_max, start = 1)                                    
++        #self.action_space = spaces.Dict(
++        #                            {"Action_type" : spaces.Discrete(3, start = -1),  # {-1,0,1}
++        #                            "Exchangable_currency" : spaces.Dict(
++        #                                                            {"Source_curr" : spaces.Discrete(self.num_of_currencies),  # {0,1,2} one of them
++        #                                                            "Target_curr" : spaces.Discrete(self.num_of_currencies)
++        #                                                            }
++        #                                                        ),
++        #                            "Amount": spaces.Discrete(self.buy_amount_max, start = 1)                                    
++        #                            
++        #                            }                
++        #)
++        self.action_space = spaces.Tuple((
++                                    spaces.Discrete(3, start = -1),                                                                     # {-1,0,1} Action_type
++                                    spaces.Tuple((spaces.Discrete(self.num_of_currencies),  spaces.Discrete(self.num_of_currencies) )), # {0,1,2}  one of them
++                                    spaces.Discrete(999, start = 1)                                                                     #  Amount 1- 999
++                                    ))                                
+                                     
+-                                    }                
+-        )
++                                                    
++        print('PASSED')
+         
+ 
+         """
+diff --git a/train_dir/example_gymnasium_trader/sf_log.txt b/train_dir/example_gymnasium_trader/sf_log.txt
+index 64ded12..e64cfc9 100644
+--- a/train_dir/example_gymnasium_trader/sf_log.txt
++++ b/train_dir/example_gymnasium_trader/sf_log.txt
+@@ -16,3 +16,4 @@
+ [2024-08-10 20:46:02,980][05508] Rollout worker 5 uses device cpu
+ [2024-08-10 20:46:02,981][05508] Rollout worker 6 uses device cpu
+ [2024-08-10 20:46:02,981][05508] Rollout worker 7 uses device cpu
++[2024-08-10 21:12:25,538][06630] Saving configuration to /home/evgenii/Documents/Jupyter_notebooks/SAMPLE_FACTORY/TRADER_PROJECT/train_dir/example_gymnasium_trader/config.json...
