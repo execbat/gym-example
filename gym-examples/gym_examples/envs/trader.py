@@ -3,7 +3,7 @@ import pygame
 
 import gymnasium as gym
 from gymnasium import spaces
-#from gymnasium.spaces import Dict, Box, Discrete
+from gymnasium.spaces.utils import flatten_space
 import random
 
 np.set_printoptions(suppress=True,precision=5)
@@ -38,7 +38,9 @@ class Broker:
         amount_to_buy = exchange_details[2]
         actual_course_mtx = self.market.get_course_mtx()
         
-        amount_to_sell = actual_course_mtx[target_curr_idx, source_curr_idx] * amount_to_buy
+        
+        
+        amount_to_sell = actual_course_mtx[int(target_curr_idx), int(source_curr_idx)] * amount_to_buy
         
         return {source_curr_idx : amount_to_sell}
         
@@ -216,7 +218,10 @@ class TraderEnv(gym.Env):
         #        
         #    }
         #)
-        self.observation_space = spaces.Box(0.0, 9999.0, shape=(self.num_of_currencies + 1,self.num_of_currencies), dtype=float)
+        #self.observation_space = spaces.Box(0.0, 9999.0, shape=(self.num_of_currencies + 1,self.num_of_currencies), dtype=float)
+        self.observation_space = flatten_space(spaces.Box(0.0, 9999.0, shape=(self.num_of_currencies + 1,self.num_of_currencies), dtype=float))
+        
+        
 
         # We have 2 actions, 0 - do nothing, 1 - exchange
         #self.action_space = spaces.Discrete(4)
@@ -232,9 +237,9 @@ class TraderEnv(gym.Env):
         #                            }                
         #)
         self.action_space = spaces.Tuple((
-                                    spaces.Discrete(3, start = -1),                                                                     # {-1,0,1} Action_type
-                                    spaces.Tuple((spaces.Discrete(self.num_of_currencies),  spaces.Discrete(self.num_of_currencies) )), # {0,1,2}  one of them
-                                    spaces.Discrete(999, start = 1)                                                                     #  Amount 1- 999
+                                    spaces.Discrete(3, start = -1, seed=42),                                                                     # {-1,0,1} Action_type
+                                    spaces.Tuple((spaces.Discrete(self.num_of_currencies, seed=42),  spaces.Discrete(self.num_of_currencies, seed=42) )), # {0,1,2}  one of them
+                                    spaces.Discrete(999, start = 1, seed=42)                                                                     #  Amount 1- 999
                                     ))                                
                                     
                                                     
@@ -272,7 +277,8 @@ class TraderEnv(gym.Env):
         wallet_np_arr = np.fromiter(wallet_dict.values(), dtype=float)
         course_mtx = self.market.get_course_mtx()
         
-        observation = np.vstack((wallet_np_arr, course_mtx), dtype=float)
+        #observation = np.vstack((wallet_np_arr, course_mtx), dtype=float)
+        observation = np.vstack((wallet_np_arr, course_mtx), dtype=float).flatten()
         return observation
 
     def _get_info(self):
@@ -317,7 +323,7 @@ class TraderEnv(gym.Env):
             
             # CHECKING IF CHANGING THE DIFFERENT CURRENCIES
             if source_curr_idx == target_curr_idx:
-                penalty = -100 # penalty because agent trying to exchange the same currencies. change to global par
+                penalty = -1000 # penalty because agent trying to exchange the same currencies. change to global par
                 break        
         
             # FIGURING OUT HOW MANY SOURCE CURRENCY TO BE PROCESSED
@@ -326,13 +332,13 @@ class TraderEnv(gym.Env):
             elif action_type == -1:
                 curr_amount_to_sell = {source_curr_idx : amount}
             else:
-                penalty = -10 # penalty because agent prefer to don't do anything. change to global par
+                penalty = -1000 # penalty because agent prefer to don't do anything. change to global par
                 break # no sense to proceed due to Action_type is 0.          
                         
             # CHECK IF I HAVE ENOUGH TO SELL
             reserved_amount_to_sell = self.agents_account.reserve_curr_for_broker(currency_amount = curr_amount_to_sell)
             if reserved_amount_to_sell is None:
-                penalty = -100 # penalty because agent trying to sell more than he has in his wallet. change to global par
+                penalty = -1000 # penalty because agent trying to sell more than he has in his wallet. change to global par
                 break # no sense to proceed due to incorrect amount to sell.
                 
             # EXCHANGE SOURCE CURRENCY TO TARGET CURRENCY WITH BROKER
@@ -342,7 +348,7 @@ class TraderEnv(gym.Env):
             self.agents_account.adopt_curr_from_broker(exchanged_amount_by_broker)
             
             # IF YOU REACHED THIS POINT, THEN EXCHANGE HAS BEEN SUCCESSFULL. AND WE NEED TO GET OUT FROM while loop anyway.
-            deal_completed_reward += 100
+            deal_completed_reward += 0
             break
         
         
