@@ -26,16 +26,17 @@ class Broker:
     #  calc_amount_to_be_sold used with Action == 1. When we know how many to buy, but don't know how many to sell.
     #  this function calculates what amount of Source currency you have to sell to buy Known amount of Target currency. 
     def calc_amount_to_be_sold(self, exchange_details = (1,  # {-1,0,1}
-                                                        (0,2), # {0,1,2} one of them
+                                                        0,
+                                                        2, # {0,1,2} one of them
                                                         1)
                                                              
                                                                 
                                 ): # --> makes {0 : 123} currency and amount which sholu be taken from AgentsAccount for exchanging. where 0 - is idx of ['USD', 'EUR', 'RUB'] 
         if exchange_details[0] != 1:
             print('INCORRECT TYPE OF ACTION FOR THIS FUNCTION')
-        source_curr_idx = exchange_details[1][0]
-        target_curr_idx = exchange_details[1][1]
-        amount_to_buy = exchange_details[2]
+        source_curr_idx = exchange_details[1]
+        target_curr_idx = exchange_details[2]
+        amount_to_buy = exchange_details[3]
         actual_course_mtx = self.market.get_course_mtx()
         
         
@@ -318,10 +319,14 @@ class TraderEnv(gym.Env):
     #}  
         
         # Parse Action   
+        #action_type = action[0]
+        #source_curr_idx = int(action[1][0])
+        #target_curr_idx = int(action[1][1])
+        #amount = action[2]
         action_type = action[0]
-        source_curr_idx = int(action[1][0])
-        target_curr_idx = int(action[1][1])
-        amount = action[2]
+        source_curr_idx = int(action[1])
+        target_curr_idx = int(action[2])
+        amount = action[3]
         
         penalty = 0
         deal_completed_reward = 0
