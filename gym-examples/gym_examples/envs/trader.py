@@ -17,7 +17,7 @@ class Broker:
         #self.received_to_exchange = {"USD" : 0}
         #self.exchanged_to_give_back = {"USD" : 0}
         
-    def exchange(self, to_sell = {0 : 0}, target_curr_idx = 2 ): # --> {2 : 110} as output. that should be adopted by AgentAccount
+    def exchange(self, to_sell = {0 : 0}, target_curr_idx = 2 ): # --> {2 : 110} as output. that should be adopted by AgentAccount afterwards
         actual_course_mtx = self.market.get_course_mtx()
         amount_to_sell = np.fromiter(to_sell.values(), dtype=float)[0]
         source_curr_idx = int(np.fromiter(to_sell.keys(), dtype=float)[0])
@@ -25,7 +25,7 @@ class Broker:
                   
     #  calc_amount_to_be_sold used with Action == 1. When we know how many to buy, but don't know how many to sell.
     #  this function calculates what amount of Source currency you have to sell to buy Known amount of Target currency. 
-    def calc_amount_to_be_sold(self, exchange_details = (1,  # {-1,0,1}
+    def calc_amount_to_be_sold(self, exchange_details = (1,  # {0,1, 2}
                                                         0,
                                                         2, # {0,1,2} one of them
                                                         1)
@@ -243,7 +243,7 @@ class TraderEnv(gym.Env):
         #                            spaces.Discrete(999, start = 1, seed=42)                                                                     #  Amount 1- 999
         #                            ))    
         self.action_space = spaces.Tuple((
-                                    spaces.Discrete(3, start = -1, seed=42),                                                                     # {-1,0,1} Action_type
+                                    spaces.Discrete(3, seed=42),                                                                     # {0,1,2} Action_type: 0 - nothing, 1 - buy, 2 -sell
                                     spaces.Discrete(self.num_of_currencies, seed=42),  # Source_curr {0,1,2}  one of them
                                     spaces.Discrete(self.num_of_currencies, seed=42) , # Target_curr {0,1,2}  one of them
                                     spaces.Discrete(999, start = 1, seed=42)                                                                     #  Amount 1- 999
@@ -340,7 +340,7 @@ class TraderEnv(gym.Env):
             # FIGURING OUT HOW MANY SOURCE CURRENCY TO BE PROCESSED
             if action_type == 1: # 1 = buy certain amount. I don't know how many source_currency to sell.        
                 curr_amount_to_sell = self.broker.calc_amount_to_be_sold(exchange_details = action) # calculate how many source_currency to sell : {0 : 100}
-            elif action_type == -1:
+            elif action_type == 2: # 2 = sell certain amount
                 curr_amount_to_sell = {source_curr_idx : amount}
             else:
                 penalty = -1000 # penalty because agent prefer to don't do anything. change to global par
