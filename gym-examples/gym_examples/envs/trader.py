@@ -236,11 +236,17 @@ class TraderEnv(gym.Env):
         #                            
         #                            }                
         #)
+        #self.action_space = spaces.Tuple((
+        #                            spaces.Discrete(3, start = -1, seed=42),                                                                     # {-1,0,1} Action_type
+        #                            spaces.Tuple((spaces.Discrete(self.num_of_currencies, seed=42),  spaces.Discrete(self.num_of_currencies, seed=42) )), # {0,1,2}  one of them
+        #                            spaces.Discrete(999, start = 1, seed=42)                                                                     #  Amount 1- 999
+        #                            ))    
         self.action_space = spaces.Tuple((
                                     spaces.Discrete(3, start = -1, seed=42),                                                                     # {-1,0,1} Action_type
-                                    spaces.Tuple((spaces.Discrete(self.num_of_currencies, seed=42),  spaces.Discrete(self.num_of_currencies, seed=42) )), # {0,1,2}  one of them
+                                    spaces.Discrete(self.num_of_currencies, seed=42),  # Source_curr {0,1,2}  one of them
+                                    spaces.Discrete(self.num_of_currencies, seed=42) , # Target_curr {0,1,2}  one of them
                                     spaces.Discrete(999, start = 1, seed=42)                                                                     #  Amount 1- 999
-                                    ))                                
+                                    ))                             
                                     
                                                     
         
