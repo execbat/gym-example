@@ -8,12 +8,28 @@ import random
 
 np.set_printoptions(suppress=True,precision=5)
 
+class Market_activ:
+    def __init__(self, market_name = "EUR", init_value = 0.92, limit_l = 0.5, limit_h = 1.5, volatility = 1):
+        self.market_name = market_name
+        self.init_value = init_value #in respect to USD. 1 USD = some value of this currency
+        self.limit_l = limit_l
+        self.limit_h = limit_h
+        self.volatility = volatility # window of volatility in %
+
+        self.current_value = self.init_value
+
+    def get_current_value(self):
+        return self.current_value
+
+    def put_new_current_value(self, value):
+        self.current_value = value
+
+
 
 class Broker:
-    def __init__(self, market = None, currency_names = ['USD', 'EUR', 'RUB'] 
-                ):
+    def __init__(self, market = None):
         self.market = market
-        self.currency_names = currency_names
+        self.currency_names = self.market.get_actives_names()
         #self.received_to_exchange = {"USD" : 0}
         #self.exchanged_to_give_back = {"USD" : 0}
         
@@ -63,90 +79,67 @@ class Broker:
 
 
 class Market: # params relatively to USD only
-    def __init__(self, num_of_currencies = 3, currency_names = ['USD', 'EUR', 'RUB']):
-        self.currency_names = currency_names         
-    	
-    	#####
-    	#Currency params
-        self.USD_EUR = 0.0
-        self.USD_RUB = 0.0
-        
-        self.USD_EUR_volatility = 0.0
-        self.USD_RUB_volatility = 0.0
-        #####
-        self.USD_EUR_limit_l = 0.0
-        self.USD_EUR_limit_h = 0.0
-        
-        self.USD_RUB_limit_l = 0.0
-        self.USD_RUB_limit_h = 0.0
-        
-        self.currency_mtx = None
+    def __init__(self, list_of_market_actives = ['USD']):
+        self.actives_names = None    
+        self.list_of_market_actives = list_of_market_actives
+        self.create_list_of_actives_names() # build the list of the names of used Market_actives with "USD" on the 1st place
+        self.num_of_currencies = len(self.list_of_market_actives)
 
+        self.course_mtx = None       
+        
+    def create_list_of_actives_names(self):
+        self.actives_names = [active.market_name for active in self.list_of_market_actives]
+        if "USD" in self.actives_names:
+            self.actives_names.insert(0, self.actives_names.pop(self.actives_names.index("USD"))) # Move "USD" to 0 place
+        else:
+            self.actives_names.insert(0, "USD")
+        
     
     def reset(self):
-        #####
-    	#Currency params
-        self.USD_EUR = 0.92
-        self.USD_RUB = 85.74
-        
-        self.USD_EUR_volatility = 0.1
-        self.USD_RUB_volatility = 5
-        
-        self.USD_EUR_limit_l = 0.5
-        self.USD_EUR_limit_h = 1.5
-        
-        self.USD_RUB_limit_l = 50
-        self.USD_RUB_limit_h = 150
-        
-        #####
-        self.currency_mtx = np.eye(len(self.currency_names), dtype=float)
+        self.course_mtx = np.eye(len(self.actives_names), dtype=float)
         self.update_course_mtx()  
     
             
     def update_course_mtx(self):
         # make 1st row
-        # self.currency_mtx = np.eye(len(currency_names))
-        self.currency_mtx[0 , 1] = self.USD_EUR
-        self.currency_mtx[0 , 2] = self.USD_RUB
+        for i_num, i_active in enumerate(self.list_of_market_actives):
+            self.course_mtx[0, i_num + 1] = i_active.get_current_value()
         # make other rows
-        for row in range(self.currency_mtx.shape[0]):    
-            for col in range (self.currency_mtx.shape[1]):
+        for row in range(self.course_mtx.shape[0]):    
+            for col in range (self.course_mtx.shape[1]):
                 if row == 0 and row != col:
-                    self.currency_mtx[col, row] = 1.0 / self.currency_mtx[row, col]
+                    self.course_mtx[col, row] = 1.0 / self.course_mtx[row, col]
         
                 if row != 0 and col != 0 and row != col:
-                    self.currency_mtx[row, col] = self.currency_mtx[row, 0] * self.currency_mtx[0, col]
+                    self.course_mtx[row, col] = self.course_mtx[row, 0] * self.course_mtx[0, col]
                     
     def update_cources(self): # used in every new STEP
         #print('old course', self.USD_EUR)
-        USD_EUR_new_val = self.USD_EUR + random.uniform(- self.USD_EUR_volatility,+ self.USD_EUR_volatility)
-        if self.USD_EUR_limit_l < USD_EUR_new_val < self.USD_EUR_limit_h:
-            self.USD_EUR = USD_EUR_new_val
-        
-        
-        USD_RUB_new_val = self.USD_RUB + random.uniform(- self.USD_RUB_volatility,+ self.USD_RUB_volatility)
-        if USD_RUB_new_val > self.USD_RUB_limit_l and USD_RUB_new_val < self.USD_RUB_limit_h:
-            self.USD_RUB = USD_RUB_new_val
-        #print('new course', self.USD_EUR)
+        for i_active in self.list_of_market_actives:
+            current_value = i_active.get_current_value()
+            volatility_limit = current_value * (i_active.volatility / 100.0) / 2.0
+            new_val = i_active.get_current_value() + random.uniform(- volatility_limit,+ volatility_limit)
+            if i_active.limit_l < new_val < i_active.limit_h:
+                i_active.put_new_current_value(new_val)
         
         self.update_course_mtx()
         
     def get_course_mtx(self):
-        return self.currency_mtx
-        
-        
-        
-        
+        return self.course_mtx
 
+    def get_actives_names(self):
+        return self.actives_names
 
 
 class AgentsAccount:
-    def __init__(self, num_of_currencies = 3, start_amount = 30.0, currency_names = ['USD', 'EUR', 'RUB']):
-        self.num_of_currencies = num_of_currencies
+    def __init__(self, start_amount = 30.0, currency_names = ['USD', 'EUR', 'RUB']):
+    
+        self.currency_names = currency_names
+        self.num_of_currencies = len(self.currency_names)
         self.start_amount = start_amount 
         self.maximal_total_wealth_ever = 0
         
-        self.currency_names = currency_names
+        
         self.personal_currencies = dict()
         self.reset() # reset all repsonal currencies        
         
@@ -205,74 +198,38 @@ class AgentsAccount:
 class TraderEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, size=5, num_of_currencies = 3, buy_amount_max = 999):
+    def __init__(self, render_mode=None, size=5, buy_amount_max = 999):
         self.size = size  # The size of the square grid
-        self.window_size = 512  # The size of the PyGame window
-        
-        self.num_of_currencies = num_of_currencies # total amount of currencies
-        self.buy_amount_max = buy_amount_max # how many on target currency to buy
-        
-        
-        self.currency_names = ['USD', 'EUR', 'RUB']
-        #CREATING OBJECTS
-        self.agents_account = AgentsAccount(num_of_currencies = 3, start_amount = 1000.0, currency_names = self.currency_names) # create personal agent's wallet with several currencies
-        self.market = Market(num_of_currencies = 3, currency_names = self.currency_names)
-        self.broker = Broker(market = self.market, currency_names = self.currency_names)
-        
-        
-        
-        #self.observation_space = spaces.Dict(
-        #    {
-        #        #"Wallet": spaces.Box(0.0, 9999.0, shape=(1,self.num_of_currencies), dtype=float),
-        #        #"Market": spaces.Box(0.0, 9999.0, shape=(self.num_of_currencies,self.num_of_currencies), dtype=float),
-        #        
-        #    }
-        #)
-        #self.observation_space = spaces.Box(0.0, 9999.0, shape=(self.num_of_currencies + 1,self.num_of_currencies), dtype=float)
-        self.observation_space = flatten_space(spaces.Box(0.0, 9999.0, shape=(self.num_of_currencies + 1,self.num_of_currencies), dtype=float))
-        
+        self.window_size = 512  # The size of the PyGame window 
+        self.buy_amount_max = buy_amount_max # how many on target currency to buy        
         
 
-        # We have 2 actions, 0 - do nothing, 1 - exchange
-        #self.action_space = spaces.Discrete(4)
-        #self.action_space = spaces.Dict(
-        #                            {"Action_type" : spaces.Discrete(3, start = -1),  # {-1,0,1}
-        #                            "Exchangable_currency" : spaces.Dict(
-        #                                                            {"Source_curr" : spaces.Discrete(self.num_of_currencies),  # {0,1,2} one of them
-        #                                                            "Target_curr" : spaces.Discrete(self.num_of_currencies)
-        #                                                            }
-        #                                                        ),
-        #                            "Amount": spaces.Discrete(self.buy_amount_max, start = 1)                                    
-        #                            
-        #                            }                
-        #)
-        #self.action_space = spaces.Tuple((
-        #                            spaces.Discrete(3, start = -1, seed=42),                                                                     # {-1,0,1} Action_type
-        #                            spaces.Tuple((spaces.Discrete(self.num_of_currencies, seed=42),  spaces.Discrete(self.num_of_currencies, seed=42) )), # {0,1,2}  one of them
-        #                            spaces.Discrete(999, start = 1, seed=42)                                                                     #  Amount 1- 999
-        #                            ))    
+        # CREATING OBJECTS
+        # Actives i.e. shares or currencies
+        list_of_market_actives = [
+                Market_activ(market_name = "EUR", init_value = 0.91, limit_l = 0.5, limit_h = 1.5, volatility = 1),
+                Market_activ(market_name = "RUB", init_value = 88.50, limit_l = 50, limit_h = 150, volatility = 7),
+                Market_activ(market_name = "JPY", init_value = 148.85, limit_l = 100, limit_h = 200, volatility = 5)
+                ]
+        
+        self.market = Market(list_of_market_actives = list_of_market_actives)
+        self.currency_names = self.market.get_actives_names()        
+        
+            
+        self.agents_account = AgentsAccount( start_amount = 100.0, currency_names = self.currency_names) # create personal agent's wallet with several currencies        
+        self.broker = Broker(market = self.market)
+        
+        # SPACES
+        self.observation_space = flatten_space(spaces.Box(0.0, 9999.0, shape=(len(self.currency_names) + 1,len(self.currency_names)), dtype=float))
         self.action_space = spaces.Tuple((
                                     spaces.Discrete(3, seed=42),                                                                     # {0,1,2} Action_type: 0 - nothing, 1 - buy, 2 -sell
-                                    spaces.Discrete(self.num_of_currencies, seed=42),  # Source_curr {0,1,2}  one of them
-                                    spaces.Discrete(self.num_of_currencies, seed=42) , # Target_curr {0,1,2}  one of them
-                                    spaces.Discrete(999, start = 1, seed=42)                                                                     #  Amount 1- 999
+                                    spaces.Discrete(len(self.currency_names), seed=42),  # Source_curr {0,1,2}  one of them
+                                    spaces.Discrete(len(self.currency_names), seed=42) , # Target_curr {0,1,2}  one of them
+                                    spaces.Discrete(self.buy_amount_max, start = 1, seed=42)                                                                     #  Amount 1- 999
                                     ))                             
                                     
                                                     
-        
-        
-
-        """
-        The following dictionary maps abstract actions from `self.action_space` to
-        the direction we will walk in if that action is taken.
-        I.e. 0 corresponds to "right", 1 to "up" etc.
-        """
-        #self._action_to_direction = {
-        #    0: np.array([1, 0]),
-        #    1: np.array([0, 1]),
-        #    2: np.array([-1, 0]),
-        #    3: np.array([0, -1]),
-        #}
+ 
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -345,23 +302,26 @@ class TraderEnv(gym.Env):
             
             # CHECKING IF CHANGING THE DIFFERENT CURRENCIES
             if source_curr_idx == target_curr_idx:
-                penalty = -1000 # penalty because agent trying to exchange the same currencies. change to global par
+                penalty = -100 # penalty because agent trying to exchange the same currencies. change to global par
                 break        
         
             # FIGURING OUT HOW MANY SOURCE CURRENCY TO BE PROCESSED
             if action_type == 1: # 1 = buy certain amount. I don't know how many source_currency to sell.        
                 curr_amount_to_sell = self.broker.calc_amount_to_be_sold(exchange_details = action) # calculate how many source_currency to sell : {0 : 100}
+                #forced_to_learn_reward += 10
+                
             elif action_type == 2: # 2 = sell certain amount
                 curr_amount_to_sell = {source_curr_idx : amount}
-                #forced_to_learn_reward += 1000
+                #forced_to_learn_reward += 10
+                
             else:
-                penalty = 0 # penalty because agent prefer to don't do anything. change to global par
+                penalty = - 10 # penalty because agent prefer to don't do anything. change to global par
                 break # no sense to proceed due to Action_type is 0.          
                         
             # CHECK IF I HAVE ENOUGH TO SELL
             reserved_amount_to_sell = self.agents_account.reserve_curr_for_broker(currency_amount = curr_amount_to_sell)
             if reserved_amount_to_sell is None:
-                penalty = -1000 # penalty because agent trying to sell more than he has in his wallet. change to global par
+                penalty = -100 # penalty because agent trying to sell more than he has in his wallet. change to global par
                 break # no sense to proceed due to incorrect amount to sell.
                 
             # EXCHANGE SOURCE CURRENCY TO TARGET CURRENCY WITH BROKER
@@ -371,7 +331,7 @@ class TraderEnv(gym.Env):
             self.agents_account.adopt_curr_from_broker(exchanged_amount_by_broker)
             
             # IF YOU REACHED THIS POINT, THEN EXCHANGE HAS BEEN SUCCESSFULL. AND WE NEED TO GET OUT FROM while loop anyway.
-            deal_completed_reward += 0
+            deal_completed_reward += 10
             break
         
         
@@ -381,8 +341,8 @@ class TraderEnv(gym.Env):
         # CALCULATE REWARD
         total_wealth = info["Total_wealth"] # Calculate total wealth of Agents wallet. All converted to "USD"
         
-        # CHECK IF TOTAL WEALTH HAS BEEn INCREASED
-        if self.agents_account.put_new_maximal_total_wealth_ever(total_wealth) == True:
+        # CHECK IF TOTAL WEALTH HAS BEEn INCREASED BECAUSE OF AGENT ACTIONS. i.e. action_type == 1 or 2, not 0
+        if (self.agents_account.put_new_maximal_total_wealth_ever(total_wealth) == True) and (action_type != 0):
             total_wealth_increased_reward += 100
         
         reward = total_wealth + total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
