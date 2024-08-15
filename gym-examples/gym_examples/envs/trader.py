@@ -177,11 +177,12 @@ class AgentsAccount:
     def get_wallet_state_idx(self):
         return dict(zip([self.currency_names.index(i_key) for i_key in self.personal_currencies.keys()], self.personal_currencies.values()))
         
-    def put_new_maximal_total_wealth_ever(self, value): # updates maximal_total_wealth_ever and returns BOOL. True if updated
+    def put_new_maximal_total_wealth_ever(self, value): # updates maximal_total_wealth_ever and returns difference. shows how good was the action
+        res = value - self.maximal_total_wealth_ever
         if value > self.maximal_total_wealth_ever:
             self.maximal_total_wealth_ever  = value
-            return True
-        return False
+            
+        return res
             
     def get_new_maximal_total_wealth_ever(self):
         return self.maximal_total_wealth_ever   
@@ -266,7 +267,7 @@ class TraderEnv(gym.Env):
         # RESET MARKET TO INITIAL STATE
         self.market.reset()
         # RESET AGENT'S WALLET
-        self.agents_account.reset()
+        #self.agents_account.reset()
 
         observation = self._get_obs()
         info = self._get_info()
@@ -277,19 +278,8 @@ class TraderEnv(gym.Env):
         return observation, info
 
     def step(self, action):
-    #{"Action_type" : 0,  # {-1,0,1}
-    # "Exchangable_currency" : {"Source_curr" : 0,  # {0,1,2} one of them
-    #                             "Target_curr" : 0
-    #                          },                                                               
-    # "Amount": 1 
-    #}  
-        
-        # Parse Action   
-        #action_type = action[0]
-        #source_curr_idx = int(action[1][0])
-        #target_curr_idx = int(action[1][1])
-        #amount = action[2]
-        action_type = action[0]
+
+        action_type = int(action[0])
         source_curr_idx = int(action[1])
         target_curr_idx = int(action[2])
         amount = action[3]
@@ -298,30 +288,31 @@ class TraderEnv(gym.Env):
         deal_completed_reward = 0
         forced_to_learn_reward = 0
         total_wealth_increased_reward = 0
+        
         while True:
             
             # CHECKING IF CHANGING THE DIFFERENT CURRENCIES
             if source_curr_idx == target_curr_idx:
-                penalty = -100 # penalty because agent trying to exchange the same currencies. change to global par
+                penalty = -10 # penalty because agent trying to exchange the same currencies. change to global par
                 break        
         
             # FIGURING OUT HOW MANY SOURCE CURRENCY TO BE PROCESSED
             if action_type == 1: # 1 = buy certain amount. I don't know how many source_currency to sell.        
                 curr_amount_to_sell = self.broker.calc_amount_to_be_sold(exchange_details = action) # calculate how many source_currency to sell : {0 : 100}
-                #forced_to_learn_reward += 10
+                forced_to_learn_reward += 0
                 
             elif action_type == 2: # 2 = sell certain amount
                 curr_amount_to_sell = {source_curr_idx : amount}
-                #forced_to_learn_reward += 10
+                forced_to_learn_reward += 0
                 
             else:
-                penalty = - 10 # penalty because agent prefer to don't do anything. change to global par
+                penalty = 0 # penalty because agent prefer to don't do anything. change to global par
                 break # no sense to proceed due to Action_type is 0.          
                         
             # CHECK IF I HAVE ENOUGH TO SELL
             reserved_amount_to_sell = self.agents_account.reserve_curr_for_broker(currency_amount = curr_amount_to_sell)
             if reserved_amount_to_sell is None:
-                penalty = -100 # penalty because agent trying to sell more than he has in his wallet. change to global par
+                penalty = -10 # penalty because agent trying to sell more than he has in his wallet. change to global par
                 break # no sense to proceed due to incorrect amount to sell.
                 
             # EXCHANGE SOURCE CURRENCY TO TARGET CURRENCY WITH BROKER
@@ -341,11 +332,15 @@ class TraderEnv(gym.Env):
         # CALCULATE REWARD
         total_wealth = info["Total_wealth"] # Calculate total wealth of Agents wallet. All converted to "USD"
         
-        # CHECK IF TOTAL WEALTH HAS BEEn INCREASED BECAUSE OF AGENT ACTIONS. i.e. action_type == 1 or 2, not 0
-        if (self.agents_account.put_new_maximal_total_wealth_ever(total_wealth) == True) and (action_type != 0):
-            total_wealth_increased_reward += 100
+        # CHECK IF TOTAL WEALTH HAS BEEn INCREASED BECAUSE OF AGENT ACTIONS. i.e. action_type == 1 or 2, not 0    
+        if action_type != 0:
+            difference = self.agents_account.put_new_maximal_total_wealth_ever(total_wealth)
+            if  difference > 0:            
+                total_wealth_increased_reward = difference
+
         
-        reward = total_wealth + total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
+        #reward = total_wealth + total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
+        reward =  total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
         
         terminated = False
         truncated = False
