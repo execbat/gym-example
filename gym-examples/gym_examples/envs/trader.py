@@ -4,6 +4,7 @@ import pygame
 import gymnasium as gym
 from gymnasium import spaces
 from gymnasium.spaces.utils import flatten_space
+from gym_examples.envs.currecnies import World_currencies_unique_list
 import random
 
 np.set_printoptions(suppress=True,precision=5)
@@ -27,17 +28,54 @@ class Market_activ:
 
 
 class Broker:
-    def __init__(self, market = None):
+    def __init__(self, market = None, agents_account = None):
+        self.agents_account = agents_account
         self.market = market
         self.currency_names = self.market.get_actives_names()
         #self.received_to_exchange = {"USD" : 0}
         #self.exchanged_to_give_back = {"USD" : 0}
         
-    def exchange(self, to_sell = {0 : 0}, target_curr_idx = 2 ): # --> {2 : 110} as output. that should be adopted by AgentAccount afterwards
+    #def sell(self, to_sell = {0 : 0}, target_curr_idx = 2 ): # --> {2 : 110} as output. that should be adopted by AgentAccount afterwards
+    #    actual_course_mtx = self.market.get_course_mtx()
+    #    amount_to_sell = np.fromiter(to_sell.values(), dtype=float)[0]
+    #    source_curr_idx = int(np.fromiter(to_sell.keys(), dtype=float)[0])
+    #    return {target_curr_idx : actual_course_mtx[source_curr_idx, target_curr_idx] * amount_to_sell}
+        
+    def exchange(self, exchange_details = (1,0,2,10)): # --> {2 : 110} as output. that should be adopted by AgentAccount afterwards
         actual_course_mtx = self.market.get_course_mtx()
-        amount_to_sell = np.fromiter(to_sell.values(), dtype=float)[0]
-        source_curr_idx = int(np.fromiter(to_sell.keys(), dtype=float)[0])
-        return {target_curr_idx : actual_course_mtx[source_curr_idx, target_curr_idx] * amount_to_sell}
+        action_type = int(exchange_details[0])
+        source_curr_idx = int(exchange_details[1])
+        target_curr_idx = int(exchange_details[2])
+        amount = exchange_details[3]
+        
+        if action_type == 1: # buy. We know how many to buy, need to calculate how many to be sold.
+            amount_to_sell = actual_course_mtx[int(target_curr_idx), int(source_curr_idx)] * amount            
+            taken_amount_from_wallet = self.agents_account.reserve_curr_for_broker({source_curr_idx : amount_to_sell})
+            if taken_amount_from_wallet is None:
+                return False # CODE OF NOT ENOUGH TO SELL
+            self.agents_account.adopt_curr_from_broker({target_curr_idx : amount})
+            
+        elif action_type == 2: # sell. We know how many to sell, need to calculate how many to be bought
+            amount_to_be_bought = actual_course_mtx[source_curr_idx, target_curr_idx] * amount
+            taken_amount_from_wallet = self.agents_account.reserve_curr_for_broker({source_curr_idx : amount})
+            if taken_amount_from_wallet is None:
+                return False# CODE OF NOT ENOUGH TO SELL
+            self.agents_account.adopt_curr_from_broker({target_curr_idx : amount_to_be_bought})
+            
+        else:
+            print('INCORRECT action_type for this method') 
+            return False
+            
+        return True # in exchange has been completed successfully
+
+        
+    def buy(self, to_buy = {0 : 0}, source_curr_idx = 2 ): # --> {2 : 110} as output. that should be adopted by AgentAccount afterwards
+        actual_course_mtx = self.market.get_course_mtx()
+        amount_to_buy = np.fromiter(to_buy.values(), dtype=float)[0]
+        target_curr_idx = int(np.fromiter(to_sell.keys(), dtype=float)[0])
+        return {target_curr_idx : actual_course_mtx[source_curr_idx, target_curr_idx] * amount_to_sell}        
+        
+        
                   
     #  calc_amount_to_be_sold used with Action == 1. When we know how many to buy, but don't know how many to sell.
     #  this function calculates what amount of Source currency you have to sell to buy Known amount of Target currency. 
@@ -218,7 +256,7 @@ class TraderEnv(gym.Env):
         
             
         self.agents_account = AgentsAccount( start_amount = 100.0, currency_names = self.currency_names) # create personal agent's wallet with several currencies        
-        self.broker = Broker(market = self.market)
+        self.broker = Broker(market = self.market, agents_account = self.agents_account)
         
         # SPACES
         self.observation_space = flatten_space(spaces.Box(0.0, 9999.0, shape=(len(self.currency_names) + 1,len(self.currency_names)), dtype=float))
@@ -258,7 +296,10 @@ class TraderEnv(gym.Env):
     def _get_info(self):
         idx_wallet = self.agents_account.get_wallet_state_idx() # Get current wallet state in idx format of keys
         total_wealth = self.broker.get_total_wealth(idx_wallet) # Calculate total wealth of Agents wallet. All converted to "USD"
-        return {"Wallet": self.agents_account.get_wallet_state(), "Market": self.market.get_course_mtx(), "Total_wealth" : total_wealth}
+        
+        wallet_state = self.agents_account.get_wallet_state()
+        market_state = self.market.get_course_mtx()
+        return {"Wallet": wallet_state, "Market": market_state, "Total_wealth" : total_wealth}
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
@@ -289,6 +330,10 @@ class TraderEnv(gym.Env):
         forced_to_learn_reward = 0
         total_wealth_increased_reward = 0
         
+        # Check wether source and target actives are share or currency
+        source_is_share = not self.currency_names[source_curr_idx] in World_currencies_unique_list
+        target_is_share = not self.currency_names[target_curr_idx] in World_currencies_unique_list
+        
         while True:
             
             # CHECKING IF CHANGING THE DIFFERENT CURRENCIES
@@ -296,31 +341,27 @@ class TraderEnv(gym.Env):
                 penalty = -10 # penalty because agent trying to exchange the same currencies. change to global par
                 break        
         
-            # FIGURING OUT HOW MANY SOURCE CURRENCY TO BE PROCESSED
-            if action_type == 1: # 1 = buy certain amount. I don't know how many source_currency to sell.        
-                curr_amount_to_sell = self.broker.calc_amount_to_be_sold(exchange_details = action) # calculate how many source_currency to sell : {0 : 100}
-                forced_to_learn_reward += 0
+            # Check if it's legal to sell/buy currencies/shares
+            if action_type == 1: # 1 = buy certain amount. I don't know how many source_currency to sell.  
+                if source_is_share:
+                    penalty = -10 # what is going to be sold Must not to be a Share. Currency only 
+                    break    
                 
-            elif action_type == 2: # 2 = sell certain amount
-                curr_amount_to_sell = {source_curr_idx : amount}
-                forced_to_learn_reward += 0
+            elif action_type == 2: # 2 = sell certain amount. I don't know how many tarcet_currency to buy.
+                if target_is_share:
+                    penalty = -10 # what is going to be bought Must not to be a Share. Currency only 
+                    break
                 
             else:
                 penalty = 0 # penalty because agent prefer to don't do anything. change to global par
-                break # no sense to proceed due to Action_type is 0.          
+                break # no sense to proceed due to Action_type is 0.   
+                
                         
             # CHECK IF I HAVE ENOUGH TO SELL
-            reserved_amount_to_sell = self.agents_account.reserve_curr_for_broker(currency_amount = curr_amount_to_sell)
-            if reserved_amount_to_sell is None:
-                penalty = -10 # penalty because agent trying to sell more than he has in his wallet. change to global par
-                break # no sense to proceed due to incorrect amount to sell.
-                
-            # EXCHANGE SOURCE CURRENCY TO TARGET CURRENCY WITH BROKER
-            exchanged_amount_by_broker = self.broker.exchange(to_sell = reserved_amount_to_sell, target_curr_idx = target_curr_idx)
-            
-            # ADOPT EXCHANGED CURRENCY INTO AGENTS WALLET
-            self.agents_account.adopt_curr_from_broker(exchanged_amount_by_broker)
-            
+            if not self.broker.exchange(action): # try to exchange
+                penalty = -10 # have not enought amount of source active to sell
+                break  
+               
             # IF YOU REACHED THIS POINT, THEN EXCHANGE HAS BEEN SUCCESSFULL. AND WE NEED TO GET OUT FROM while loop anyway.
             deal_completed_reward += 10
             break
