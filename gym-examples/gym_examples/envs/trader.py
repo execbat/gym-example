@@ -237,7 +237,7 @@ class AgentsAccount:
 class TraderEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, size=5, buy_amount_max = 999):
+    def __init__(self, render_mode=None, size=5, buy_amount_max = 100):
         self.size = size  # The size of the square grid
         self.window_size = 512  # The size of the PyGame window 
         self.buy_amount_max = buy_amount_max # how many on target currency to buy        
@@ -248,7 +248,7 @@ class TraderEnv(gym.Env):
         list_of_market_actives = [
                 Market_activ(market_name = "EUR", init_value = 0.91, limit_l = 0.5, limit_h = 1.5, volatility = 1),
                 Market_activ(market_name = "RUB", init_value = 88.50, limit_l = 50, limit_h = 150, volatility = 7),
-                Market_activ(market_name = "JPY", init_value = 148.85, limit_l = 100, limit_h = 200, volatility = 5)
+                Market_activ(market_name = "AEROFLOT", init_value = 148.85, limit_l = 100, limit_h = 200, volatility = 5)
                 ]
         
         self.market = Market(list_of_market_actives = list_of_market_actives)
@@ -338,17 +338,20 @@ class TraderEnv(gym.Env):
             
             # CHECKING IF CHANGING THE DIFFERENT CURRENCIES
             if source_curr_idx == target_curr_idx:
+                #print('Error. exchanging the same actives')
                 penalty = -10 # penalty because agent trying to exchange the same currencies. change to global par
                 break        
         
             # Check if it's legal to sell/buy currencies/shares
             if action_type == 1: # 1 = buy certain amount. I don't know how many source_currency to sell.  
                 if source_is_share:
+                    #print('Error. Incorrect exchanging types. Source active cant be a Share')
                     penalty = -10 # what is going to be sold Must not to be a Share. Currency only 
                     break    
                 
             elif action_type == 2: # 2 = sell certain amount. I don't know how many tarcet_currency to buy.
                 if target_is_share:
+                    #print('Error. Incorrect exchanging types. Target active cant be a Share')
                     penalty = -10 # what is going to be bought Must not to be a Share. Currency only 
                     break
                 
@@ -359,10 +362,12 @@ class TraderEnv(gym.Env):
                         
             # CHECK IF I HAVE ENOUGH TO SELL
             if not self.broker.exchange(action): # try to exchange
+                #print('Error. Trying to sell more than have in the wallet')
                 penalty = -10 # have not enought amount of source active to sell
                 break  
                
             # IF YOU REACHED THIS POINT, THEN EXCHANGE HAS BEEN SUCCESSFULL. AND WE NEED TO GET OUT FROM while loop anyway.
+            #print('Good. Exchange has been completed successfully!')
             deal_completed_reward += 10
             break
         
@@ -374,7 +379,7 @@ class TraderEnv(gym.Env):
         total_wealth = info["Total_wealth"] # Calculate total wealth of Agents wallet. All converted to "USD"
         
         # CHECK IF TOTAL WEALTH HAS BEEn INCREASED BECAUSE OF AGENT ACTIONS. i.e. action_type == 1 or 2, not 0    
-        if action_type != 0:
+        if ((action_type != 0) and (penalty == 0)):
             difference = self.agents_account.put_new_maximal_total_wealth_ever(total_wealth)
             if  difference > 0:            
                 total_wealth_increased_reward = difference
