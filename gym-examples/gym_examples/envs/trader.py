@@ -5,6 +5,7 @@ import gymnasium as gym
 from gymnasium import spaces
 from gymnasium.spaces.utils import flatten_space
 from gym_examples.envs.currecnies import World_currencies_unique_list
+from gym_examples.envs.broker_settings import Broker_commission
 import random
 
 np.set_printoptions(suppress=True,precision=5)
@@ -32,15 +33,7 @@ class Broker:
         self.agents_account = agents_account
         self.market = market
         self.currency_names = self.market.get_actives_names()
-        #self.received_to_exchange = {"USD" : 0}
-        #self.exchanged_to_give_back = {"USD" : 0}
-        
-    #def sell(self, to_sell = {0 : 0}, target_curr_idx = 2 ): # --> {2 : 110} as output. that should be adopted by AgentAccount afterwards
-    #    actual_course_mtx = self.market.get_course_mtx()
-    #    amount_to_sell = np.fromiter(to_sell.values(), dtype=float)[0]
-    #    source_curr_idx = int(np.fromiter(to_sell.keys(), dtype=float)[0])
-    #    return {target_curr_idx : actual_course_mtx[source_curr_idx, target_curr_idx] * amount_to_sell}
-        
+
     def exchange(self, exchange_details = (1,0,2,10)): # --> {2 : 110} as output. that should be adopted by AgentAccount afterwards
         actual_course_mtx = self.market.get_course_mtx()
         action_type = int(exchange_details[0])
@@ -48,56 +41,42 @@ class Broker:
         target_curr_idx = int(exchange_details[2])
         amount = exchange_details[3]
         
+        # Check wether source and target actives are share or currency
+        source_is_share = not self.currency_names[source_curr_idx] in World_currencies_unique_list
+        target_is_share = not self.currency_names[target_curr_idx] in World_currencies_unique_list
+        # We need to know if there is a share exchange or currency exchange to calculate commission appropriately 
+        if source_is_share == True or target_is_share == True:
+            #print('operation with shares')
+            operation_with_shares = True
+        else:
+            #print('operation with currencies')
+            operation_with_shares = False      
+        
         if action_type == 1: # buy. We know how many to buy, need to calculate how many to be sold.
-            amount_to_sell = actual_course_mtx[int(target_curr_idx), int(source_curr_idx)] * amount            
-            taken_amount_from_wallet = self.agents_account.reserve_curr_for_broker({source_curr_idx : amount_to_sell})
+            amount_to_sell = actual_course_mtx[int(target_curr_idx), int(source_curr_idx)] * amount # this amount doesn't include the commission
+            #print('amount_to_sell ', amount_to_sell)
+            commission = self.calc_commission(value = amount_to_sell, operation_with_shares = operation_with_shares)    
+            #print('commission ', commission)        
+            taken_amount_from_wallet = self.agents_account.reserve_curr_for_broker({source_curr_idx : amount_to_sell + commission})
             if taken_amount_from_wallet is None:
                 return False # CODE OF NOT ENOUGH TO SELL
             self.agents_account.adopt_curr_from_broker({target_curr_idx : amount})
             
         elif action_type == 2: # sell. We know how many to sell, need to calculate how many to be bought
             amount_to_be_bought = actual_course_mtx[source_curr_idx, target_curr_idx] * amount
+            #print('amount_to_be_bought ', amount_to_be_bought)
+            commission = self.calc_commission(value = amount_to_be_bought, operation_with_shares = operation_with_shares)  
+            #print('commission ', commission)        
             taken_amount_from_wallet = self.agents_account.reserve_curr_for_broker({source_curr_idx : amount})
             if taken_amount_from_wallet is None:
                 return False# CODE OF NOT ENOUGH TO SELL
-            self.agents_account.adopt_curr_from_broker({target_curr_idx : amount_to_be_bought})
+            self.agents_account.adopt_curr_from_broker({target_curr_idx : amount_to_be_bought - commission})
             
         else:
             print('INCORRECT action_type for this method') 
             return False
             
         return True # in exchange has been completed successfully
-
-        
-    def buy(self, to_buy = {0 : 0}, source_curr_idx = 2 ): # --> {2 : 110} as output. that should be adopted by AgentAccount afterwards
-        actual_course_mtx = self.market.get_course_mtx()
-        amount_to_buy = np.fromiter(to_buy.values(), dtype=float)[0]
-        target_curr_idx = int(np.fromiter(to_sell.keys(), dtype=float)[0])
-        return {target_curr_idx : actual_course_mtx[source_curr_idx, target_curr_idx] * amount_to_sell}        
-        
-        
-                  
-    #  calc_amount_to_be_sold used with Action == 1. When we know how many to buy, but don't know how many to sell.
-    #  this function calculates what amount of Source currency you have to sell to buy Known amount of Target currency. 
-    def calc_amount_to_be_sold(self, exchange_details = (1,  # {0,1, 2}
-                                                        0,
-                                                        2, # {0,1,2} one of them
-                                                        1)
-                                                             
-                                                                
-                                ): # --> makes {0 : 123} currency and amount which sholu be taken from AgentsAccount for exchanging. where 0 - is idx of ['USD', 'EUR', 'RUB'] 
-        if exchange_details[0] != 1:
-            print('INCORRECT TYPE OF ACTION FOR THIS FUNCTION')
-        source_curr_idx = exchange_details[1]
-        target_curr_idx = exchange_details[2]
-        amount_to_buy = exchange_details[3]
-        actual_course_mtx = self.market.get_course_mtx()
-        
-        
-        
-        amount_to_sell = actual_course_mtx[int(target_curr_idx), int(source_curr_idx)] * amount_to_buy
-        
-        return {source_curr_idx : amount_to_sell}
         
     def get_total_wealth(self, agents_wallet_idx):
         total_wealth = 0
@@ -111,6 +90,15 @@ class Broker:
                 total_wealth += i_val * actual_course_mtx[i_key, USD_idx]
         
         return total_wealth
+        
+    def calc_commission(self, value = 0, operation_with_shares = False): 
+        if operation_with_shares:
+            commission_value = Broker_commission["Share_exchange"]
+        else:
+            commission_value = Broker_commission["Currency_exchange"] 
+            
+        return  value * commission_value  
+    
         
         
                      
