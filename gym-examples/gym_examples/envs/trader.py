@@ -120,7 +120,8 @@ class Market: # params relatively to USD only
         self.create_list_of_actives_names() # build the list of the names of used Market_actives with "USD" on the 1st place
         self.num_of_currencies = len(self.list_of_market_actives)
 
-        self.course_mtx = None       
+        self.course_mtx = None    
+        self.reset()   
         
     def create_list_of_actives_names(self):
         self.actives_names = [active.market_name for active in self.list_of_market_actives]
@@ -301,7 +302,12 @@ class TraderEnv(gym.Env):
         wallet_state = self.agents_account.get_wallet_state()
         market_state = self.market.get_course_mtx()
         brokers_accrued_commission = self.broker.get_accrued_commission()
-        return {"Wallet": wallet_state, "Market": market_state, "Total_wealth" : total_wealth, "Broker_overall_commission" : brokers_accrued_commission}
+        maximal_wallet_wealth_ever = self.agents_account.get_new_maximal_total_wealth_ever()
+        return {"Wallet": wallet_state, 
+        "Market": market_state, 
+        "Total_wealth" : total_wealth, 
+        "Broker_overall_commission" : brokers_accrued_commission, 
+        "Maximum_wallet_wealth" : maximal_wallet_wealth_ever}
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
@@ -311,11 +317,11 @@ class TraderEnv(gym.Env):
         
         
         # RESET MARKET TO INITIAL STATE
-        self.market.reset()
+        #self.market.reset()
         # RESET AGENT'S WALLET
-        self.agents_account.reset()        
+        #self.agents_account.reset()        
         # RESET BROKERS ACCRUED COMMISSION
-        self.broker.reset()
+        #self.broker.reset()
 
         observation = self._get_obs()
         info = self._get_info()
@@ -390,13 +396,15 @@ class TraderEnv(gym.Env):
         # CHECK IF TOTAL WEALTH HAS BEEn INCREASED BECAUSE OF AGENT ACTIONS. i.e. action_type == 1 or 2, not 0    
         if ((action_type != 0) and (penalty == 0)):
             difference = self.agents_account.put_new_maximal_total_wealth_ever(total_wealth)
-            if  difference > 0:            
-                total_wealth_increased_reward = difference
+            if difference > 0:
+                total_wealth_increased_reward = difference * 100.0
+            
+            
 
         
         #reward = total_wealth + total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
         #reward =  total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
-        reward = total_wealth + penalty + total_wealth_increased_reward
+        reward =  total_wealth * 0.1 + penalty + total_wealth_increased_reward
         
         terminated = False
         truncated = False # self.current_step >= self.max_episode_steps # experimental
