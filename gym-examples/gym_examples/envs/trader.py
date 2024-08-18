@@ -33,6 +33,7 @@ class Broker:
         self.agents_account = agents_account
         self.market = market
         self.currency_names = self.market.get_actives_names()
+        self.commission_count = 0.0
 
     def exchange(self, exchange_details = (1,0,2,10)): # --> {2 : 110} as output. that should be adopted by AgentAccount afterwards
         actual_course_mtx = self.market.get_course_mtx()
@@ -56,6 +57,7 @@ class Broker:
             amount_to_sell = actual_course_mtx[int(target_curr_idx), int(source_curr_idx)] * amount # this amount doesn't include the commission
             #print('amount_to_sell ', amount_to_sell)
             commission = self.calc_commission(value = amount_to_sell, operation_with_shares = operation_with_shares)    
+            self.commission_count += commission * actual_course_mtx[int(source_curr_idx), 0] # count commission in "USD" only
             #print('commission ', commission)        
             taken_amount_from_wallet = self.agents_account.reserve_curr_for_broker({source_curr_idx : amount_to_sell + commission})
             if taken_amount_from_wallet is None:
@@ -66,6 +68,7 @@ class Broker:
             amount_to_be_bought = actual_course_mtx[source_curr_idx, target_curr_idx] * amount
             #print('amount_to_be_bought ', amount_to_be_bought)
             commission = self.calc_commission(value = amount_to_be_bought, operation_with_shares = operation_with_shares)  
+            self.commission_count += commission * actual_course_mtx[int(target_curr_idx), 0] # count commission in "USD" only
             #print('commission ', commission)        
             taken_amount_from_wallet = self.agents_account.reserve_curr_for_broker({source_curr_idx : amount})
             if taken_amount_from_wallet is None:
@@ -97,7 +100,13 @@ class Broker:
         else:
             commission_value = Broker_commission["Currency_exchange"] 
             
-        return  value * commission_value  
+        return  value * commission_value 
+        
+    def get_accrued_commission(self):
+        return self.commission_count
+        
+    def reset(self):
+        self.commission_count = 0.0
     
         
         
@@ -226,6 +235,10 @@ class TraderEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
     def __init__(self, render_mode=None, size=5, buy_amount_max = 100):
+        super().__init__()
+        #self.current_step = 0
+        #self.max_episode_steps = max_episode_steps
+        
         self.size = size  # The size of the square grid
         self.window_size = 512  # The size of the PyGame window 
         self.buy_amount_max = buy_amount_max # how many on target currency to buy        
@@ -287,16 +300,22 @@ class TraderEnv(gym.Env):
         
         wallet_state = self.agents_account.get_wallet_state()
         market_state = self.market.get_course_mtx()
-        return {"Wallet": wallet_state, "Market": market_state, "Total_wealth" : total_wealth}
+        brokers_accrued_commission = self.broker.get_accrued_commission()
+        return {"Wallet": wallet_state, "Market": market_state, "Total_wealth" : total_wealth, "Broker_overall_commission" : brokers_accrued_commission}
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
+        #self.current_step = 0 #experimental
+        
+        
         
         # RESET MARKET TO INITIAL STATE
         self.market.reset()
         # RESET AGENT'S WALLET
-        #self.agents_account.reset()
+        self.agents_account.reset()        
+        # RESET BROKERS ACCRUED COMMISSION
+        self.broker.reset()
 
         observation = self._get_obs()
         info = self._get_info()
@@ -307,6 +326,8 @@ class TraderEnv(gym.Env):
         return observation, info
 
     def step(self, action):
+        #self.current_step += 1 #experimental
+    
 
         action_type = int(action[0])
         source_curr_idx = int(action[1])
@@ -356,7 +377,7 @@ class TraderEnv(gym.Env):
                
             # IF YOU REACHED THIS POINT, THEN EXCHANGE HAS BEEN SUCCESSFULL. AND WE NEED TO GET OUT FROM while loop anyway.
             #print('Good. Exchange has been completed successfully!')
-            deal_completed_reward += 10
+            deal_completed_reward = 0 #10
             break
         
         
@@ -374,10 +395,11 @@ class TraderEnv(gym.Env):
 
         
         #reward = total_wealth + total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
-        reward =  total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
+        #reward =  total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
+        reward = total_wealth + penalty + total_wealth_increased_reward
         
         terminated = False
-        truncated = False
+        truncated = False # self.current_step >= self.max_episode_steps # experimental
                 
         # UPDATE MARKET STATE TO GET NEW OBSERVATION
         self.market.update_cources()        
