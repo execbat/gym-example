@@ -232,7 +232,7 @@ class AgentsAccount:
 
 
 #class GridWorldEnv(gym.Env):
-class TraderEnv(gym.Env):
+class TraderEnvCnn(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
     def __init__(self, render_mode=None, size=5, buy_amount_max = 100):
@@ -261,7 +261,8 @@ class TraderEnv(gym.Env):
         self.broker = Broker(market = self.market, agents_account = self.agents_account)
         
         # SPACES
-        self.observation_space = flatten_space(spaces.Box(0.0, 9999.0, shape=(len(self.currency_names) + 1,len(self.currency_names)), dtype=float))
+        #self.observation_space = flatten_space(spaces.Box(0.0, 9999.0, shape=(len(self.currency_names) + 1,len(self.currency_names)), dtype=float))
+        self.observation_space = spaces.Box(0.0, 9999.0, shape=(len(self.currency_names) + 1,len(self.currency_names)), dtype=float)
         self.action_space = spaces.Tuple((
                                     spaces.Discrete(3, seed=42),                                                                     # {0,1,2} Action_type: 0 - nothing, 1 - buy, 2 -sell
                                     spaces.Discrete(len(self.currency_names), seed=42),  # Source_curr {0,1,2}  one of them
@@ -291,8 +292,9 @@ class TraderEnv(gym.Env):
         wallet_np_arr = np.fromiter(wallet_dict.values(), dtype=float)
         course_mtx = self.market.get_course_mtx()
         
-        #observation = np.vstack((wallet_np_arr, course_mtx), dtype=float)
-        observation = np.vstack((wallet_np_arr, course_mtx), dtype=float).flatten()
+        
+        #observation = np.vstack((wallet_np_arr, course_mtx), dtype=float).flatten()
+        observation = np.vstack((wallet_np_arr, course_mtx), dtype=float)
         return observation
 
     def _get_info(self):
@@ -317,11 +319,11 @@ class TraderEnv(gym.Env):
         
         
         # RESET MARKET TO INITIAL STATE
-        self.market.reset()
+        #self.market.reset()
         # RESET AGENT'S WALLET
-        self.agents_account.reset()        
+        #self.agents_account.reset()        
         # RESET BROKERS ACCRUED COMMISSION
-        self.broker.reset()
+        #self.broker.reset()
 
         observation = self._get_obs()
         info = self._get_info()
@@ -354,20 +356,20 @@ class TraderEnv(gym.Env):
             # CHECKING IF CHANGING THE DIFFERENT CURRENCIES
             if source_curr_idx == target_curr_idx:
                 #print('Error. exchanging the same actives')
-                penalty = -10 # penalty because agent trying to exchange the same currencies. change to global par
+                penalty = -100 # penalty because agent trying to exchange the same currencies. change to global par
                 break        
         
             # Check if it's legal to sell/buy currencies/shares
             if action_type == 1: # 1 = buy certain amount. I don't know how many source_currency to sell.  
                 if source_is_share:
                     #print('Error. Incorrect exchanging types. Source active cant be a Share')
-                    penalty = -10 # what is going to be sold Must not to be a Share. Currency only 
+                    penalty = -100 # what is going to be sold Must not to be a Share. Currency only 
                     break    
                 
             elif action_type == 2: # 2 = sell certain amount. I don't know how many tarcet_currency to buy.
                 if target_is_share:
                     #print('Error. Incorrect exchanging types. Target active cant be a Share')
-                    penalty = -10 # what is going to be bought Must not to be a Share. Currency only 
+                    penalty = -100 # what is going to be bought Must not to be a Share. Currency only 
                     break
                 
             else:
@@ -378,7 +380,7 @@ class TraderEnv(gym.Env):
             # CHECK IF I HAVE ENOUGH TO SELL
             if not self.broker.exchange(action): # try to exchange
                 #print('Error. Trying to sell more than have in the wallet')
-                penalty = -10 # have not enought amount of source active to sell
+                penalty = -100 # have not enought amount of source active to sell
                 break  
                
             # IF YOU REACHED THIS POINT, THEN EXCHANGE HAS BEEN SUCCESSFULL. AND WE NEED TO GET OUT FROM while loop anyway.
@@ -404,7 +406,7 @@ class TraderEnv(gym.Env):
         
         #reward = total_wealth + total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
         #reward =  total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
-        reward =  total_wealth * 0.1 + penalty + total_wealth_increased_reward
+        reward =  total_wealth  + penalty 
         
         terminated = False
         truncated = False # self.current_step >= self.max_episode_steps # experimental
