@@ -29,9 +29,10 @@ def get_trader_cnn_env_cfg(argv=None):
     cfg.exploration_loss_coeff = 0.003  # 0.003
     cfg.value_loss_coeff = 0.5
     
-    cfg.frame_stack = 16
-    cfg.nonlinearity = "tanh"
+    cfg.frame_stack = 4
+    cfg.nonlinearity = "elu"
     cfg.rnn_type = "lstm"
+    cfg.decoder_mlp_layers = 2
     
 
     return cfg

@@ -122,6 +122,7 @@ class CustomEncoder(Encoder):
         
         self.conv_head = nn.Sequential(*conv_layers)
         self.conv_head_out_size = calc_num_elements(self.conv_head, obs_shape)
+        print('self.conv_head_out_size', self.conv_head_out_size)
         
         
 
