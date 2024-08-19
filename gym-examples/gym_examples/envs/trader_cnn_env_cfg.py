@@ -32,7 +32,7 @@ def get_trader_cnn_env_cfg(argv=None):
     cfg.frame_stack = 4
     cfg.nonlinearity = "elu"
     cfg.rnn_type = "lstm"
-    cfg.decoder_mlp_layers = 2
+    cfg.decoder_mlp_layers = [512, 512]
     
 
     return cfg
