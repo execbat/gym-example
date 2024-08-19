@@ -20,16 +20,18 @@ def get_trader_cnn_env_cfg(argv=None):
     
     # Custom parameters for the Trader environment
     #cfg.max_episode_length = 1000  # Adjust as necessary
-    cfg.learning_rate = 0.003
+    cfg.learning_rate = 0.0003
     cfg.num_envs_per_worker = 16
     cfg.rollout = 64
     cfg.recurrence = 64
     cfg.gamma = 0.99
     cfg.max_grad_norm = 0.2
-    cfg.exploration_loss_coeff = 0.03  # 0.003
+    cfg.exploration_loss_coeff = 0.003  # 0.003
     cfg.value_loss_coeff = 0.5
     
     cfg.frame_stack = 16
+    cfg.nonlinearity = "tanh"
+    cfg.rnn_type = "lstm"
     
 
     return cfg
