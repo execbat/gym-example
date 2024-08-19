@@ -399,14 +399,14 @@ class TraderEnvCnn(gym.Env):
         if ((action_type != 0) and (penalty == 0)):
             difference = self.agents_account.put_new_maximal_total_wealth_ever(total_wealth)
             if difference > 0:
-                total_wealth_increased_reward = difference * 100.0
+                total_wealth_increased_reward = difference * 10.0
             
             
 
         
         #reward = total_wealth + total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
         #reward =  total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
-        reward =  total_wealth * 0.01  + penalty + total_wealth_increased_reward
+        reward =  total_wealth  + penalty + total_wealth_increased_reward
         
         terminated = False
         truncated = False # self.current_step >= self.max_episode_steps # experimental
