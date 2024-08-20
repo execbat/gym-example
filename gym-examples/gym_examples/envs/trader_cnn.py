@@ -174,10 +174,12 @@ class AgentsAccount:
         self.num_of_currencies = len(self.currency_names)
         self.start_amount = start_amount 
         self.maximal_total_wealth_ever = 0
+        self.last_total_wealth = 0
         
         
         self.personal_currencies = dict()
-        self.reset() # reset all repsonal currencies        
+        self.reset() # reset all repsonal currencies
+                
         
     def reset(self):    
         for i in range(self.num_of_currencies):
@@ -222,6 +224,12 @@ class AgentsAccount:
             
     def get_new_maximal_total_wealth_ever(self):
         return self.maximal_total_wealth_ever   
+        
+    def save_current_wealth(self, value):
+        self.last_total_wealth = value
+        
+    def get_last_wealth(self):
+        return self.last_total_wealth
     
                     
             
@@ -346,6 +354,7 @@ class TraderEnvCnn(gym.Env):
         deal_completed_reward = 0
         forced_to_learn_reward = 0
         total_wealth_increased_reward = 0
+        new_wealth_greater_reward = 0
         
         # Check wether source and target actives are share or currency
         source_is_share = not self.currency_names[source_curr_idx] in World_currencies_unique_list
@@ -356,20 +365,20 @@ class TraderEnvCnn(gym.Env):
             # CHECKING IF CHANGING THE DIFFERENT CURRENCIES
             if source_curr_idx == target_curr_idx:
                 #print('Error. exchanging the same actives')
-                penalty = -100 # penalty because agent trying to exchange the same currencies. change to global par
+                penalty = -1000 # penalty because agent trying to exchange the same currencies. change to global par
                 break        
         
             # Check if it's legal to sell/buy currencies/shares
             if action_type == 1: # 1 = buy certain amount. I don't know how many source_currency to sell.  
                 if source_is_share:
                     #print('Error. Incorrect exchanging types. Source active cant be a Share')
-                    penalty = -100 # what is going to be sold Must not to be a Share. Currency only 
+                    penalty = -1000 # what is going to be sold Must not to be a Share. Currency only 
                     break    
                 
             elif action_type == 2: # 2 = sell certain amount. I don't know how many tarcet_currency to buy.
                 if target_is_share:
                     #print('Error. Incorrect exchanging types. Target active cant be a Share')
-                    penalty = -100 # what is going to be bought Must not to be a Share. Currency only 
+                    penalty = -1000 # what is going to be bought Must not to be a Share. Currency only 
                     break
                 
             else:
@@ -380,7 +389,7 @@ class TraderEnvCnn(gym.Env):
             # CHECK IF I HAVE ENOUGH TO SELL
             if not self.broker.exchange(action): # try to exchange
                 #print('Error. Trying to sell more than have in the wallet')
-                penalty = -100 # have not enought amount of source active to sell
+                penalty = -1000 # have not enought amount of source active to sell
                 break  
                
             # IF YOU REACHED THIS POINT, THEN EXCHANGE HAS BEEN SUCCESSFULL. AND WE NEED TO GET OUT FROM while loop anyway.
@@ -395,18 +404,27 @@ class TraderEnvCnn(gym.Env):
         # CALCULATE REWARD
         total_wealth = info["Total_wealth"] # Calculate total wealth of Agents wallet. All converted to "USD"
         
+        # IF new wealth value > than previous
+        last_wealth = self.agents_account.get_last_wealth()
+        if total_wealth > last_wealth:
+            new_wealth_greater_reward = total_wealth - last_wealth
+        
+        # save actual wealth value to compare it on the next step only    
+        self.agents_account.save_current_wealth(total_wealth) 
+        
+        
         # CHECK IF TOTAL WEALTH HAS BEEn INCREASED BECAUSE OF AGENT ACTIONS. i.e. action_type == 1 or 2, not 0    
         if ((action_type != 0) and (penalty == 0)):
             difference = self.agents_account.put_new_maximal_total_wealth_ever(total_wealth)
             if difference > 0:
-                total_wealth_increased_reward = difference * 10.0
+                total_wealth_increased_reward = difference * 10
             
             
 
         
         #reward = total_wealth + total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
         #reward =  total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
-        reward =  total_wealth  + penalty + total_wealth_increased_reward
+        reward =  total_wealth   + penalty + new_wealth_greater_reward + total_wealth_increased_reward
         
         terminated = False
         truncated = False # self.current_step >= self.max_episode_steps # experimental
