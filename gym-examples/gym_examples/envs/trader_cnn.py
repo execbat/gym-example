@@ -257,7 +257,7 @@ class TraderEnvCnn(gym.Env):
         self.reward_achievent = 10   
         
         # What need to DO
-        self.check_stats_every_steps = 10      # checking wallet score every n steps
+        self.check_stats_every_steps = 100      # checking wallet score every n steps
         self.expected_increase_per_period = 100 # if total wealth increased on this value in period of  self.check_stats_every_steps steps. then all good, else penalty 
         
 
