@@ -22,7 +22,7 @@ def get_trader_cnn_env_cfg(argv=None):
     
     # Custom parameters for the Trader environment
     #cfg.max_episode_length = 1000  # Adjust as necessary
-    cfg.learning_rate = 0.0001
+    cfg.learning_rate = 0.00001
     cfg.num_envs_per_worker = 16
     cfg.rollout = 64
     cfg.recurrence = 64

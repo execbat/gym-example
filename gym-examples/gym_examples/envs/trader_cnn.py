@@ -258,7 +258,7 @@ class TraderEnvCnn(gym.Env):
         
         # What need to DO
         self.check_stats_every_steps = 100      # checking wallet score every n steps
-        self.expected_increase_per_period = 100 # if total wealth increased on this value in period of  self.check_stats_every_steps steps. then all good, else penalty 
+        self.expected_increase_per_period = 20 # if total wealth increased on this value in period of  self.check_stats_every_steps steps. then all good, else penalty 
         
 
         # CREATING OBJECTS
@@ -424,29 +424,30 @@ class TraderEnvCnn(gym.Env):
         time_to_check_stats = (self.current_step % self.check_stats_every_steps == 0)
         
         ########################
-        if time_to_check_stats:
+        if time_to_check_stats and penalty == 0:
         
             # IF new wealth value > than previous
             last_wealth = self.agents_account.get_last_wealth()        
-            if penalty == 0:
-                #if action_type != 0:  # not used. because we check stats periodically. we don't care the type of actions during the period. 
-                if (total_wealth - last_wealth) > self.expected_increase_per_period: # if agent earned enough during the period               
-                    new_wealth_greater_reward =  self.reward_achievent 
+            
+            #if action_type != 0:  # not used. because we check stats periodically. we don't care the type of actions during the period. 
+            if (total_wealth - last_wealth) > self.expected_increase_per_period: # if agent earned enough during the period               
+                new_wealth_greater_reward =  self.reward_achievent 
                     
-                else: # if wealth have not increased since the previous period
-                    penalty = self.penalty_broken_rules
-
+            else: # if wealth have not increased since the previous period
+                penalty = self.penalty_broken_rules
         
             # save actual wealth value to compare it on the next step only    
             self.agents_account.save_current_wealth(total_wealth) 
         
         
+        
+        
             # CHECK IF TOTAL WEALTH HAS BEEn INCREASED BECAUSE OF AGENT ACTIONS. i.e. action_type == 1 or 2, not 0    
             difference = self.agents_account.put_new_maximal_total_wealth_ever(total_wealth)
-            if penalty == 0:
-                #if action_type != 0: # not used. because we check stats periodically. we don't care the type of actions during the period. 
-                if difference > 0:                
-                    total_wealth_increased_reward = self.reward_achievent
+            
+            #if action_type != 0: # not used. because we check stats periodically. we don't care the type of actions during the period. 
+            if difference > 0:                
+                total_wealth_increased_reward = self.reward_achievent
         ########################
                     
             
