@@ -245,12 +245,20 @@ class TraderEnvCnn(gym.Env):
 
     def __init__(self, render_mode=None, size=5, buy_amount_max = 100):
         super().__init__()
-        #self.current_step = 0
-        #self.max_episode_steps = max_episode_steps
+        self.current_step = 0
+        
         
         self.size = size  # The size of the square grid
         self.window_size = 512  # The size of the PyGame window 
-        self.buy_amount_max = buy_amount_max # how many on target currency to buy        
+        self.buy_amount_max = buy_amount_max # how many on target currency to buy    
+        
+        #Penalties and Rewards
+        self.penalty_broken_rules = -1
+        self.reward_achievent = 10   
+        
+        # What need to DO
+        self.check_stats_every_steps = 10      # checking wallet score every n steps
+        self.expected_increase_per_period = 100 # if total wealth increased on this value in period of  self.check_stats_every_steps steps. then all good, else penalty 
         
 
         # CREATING OBJECTS
@@ -323,6 +331,7 @@ class TraderEnvCnn(gym.Env):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
         #self.current_step = 0 #experimental
+        self.current_step = 0
         
         
         
@@ -342,7 +351,7 @@ class TraderEnvCnn(gym.Env):
         return observation, info
 
     def step(self, action):
-        #self.current_step += 1 #experimental
+        self.current_step += 1 #experimental
     
 
         action_type = int(action[0])
@@ -365,21 +374,29 @@ class TraderEnvCnn(gym.Env):
             # CHECKING IF CHANGING THE DIFFERENT CURRENCIES
             if source_curr_idx == target_curr_idx:
                 #print('Error. exchanging the same actives')
-                penalty = -1000 # penalty because agent trying to exchange the same currencies. change to global par
+                penalty = self.penalty_broken_rules # penalty because agent trying to exchange the same currencies. change to global par
                 break        
         
             # Check if it's legal to sell/buy currencies/shares
             if action_type == 1: # 1 = buy certain amount. I don't know how many source_currency to sell.  
                 if source_is_share:
                     #print('Error. Incorrect exchanging types. Source active cant be a Share')
-                    penalty = -1000 # what is going to be sold Must not to be a Share. Currency only 
-                    break    
+                    penalty = self.penalty_broken_rules # what is going to be sold Must not to be a Share. Currency only 
+                    break  
+                    
+                if amount == 0:
+                    penalty = self.penalty_broken_rules # prevent attempts to buy 0 items
+                    break  
                 
             elif action_type == 2: # 2 = sell certain amount. I don't know how many tarcet_currency to buy.
                 if target_is_share:
                     #print('Error. Incorrect exchanging types. Target active cant be a Share')
-                    penalty = -1000 # what is going to be bought Must not to be a Share. Currency only 
+                    penalty = self.penalty_broken_rules # what is going to be bought Must not to be a Share. Currency only 
                     break
+                    
+                if amount == 0:
+                    penalty = self.penalty_broken_rules # prevent attempts to sell 0 items
+                    break 
                 
             else:
                 penalty = 0 # penalty because agent prefer to don't do anything. change to global par
@@ -389,7 +406,7 @@ class TraderEnvCnn(gym.Env):
             # CHECK IF I HAVE ENOUGH TO SELL
             if not self.broker.exchange(action): # try to exchange
                 #print('Error. Trying to sell more than have in the wallet')
-                penalty = -1000 # have not enought amount of source active to sell
+                penalty = self.penalty_broken_rules # have not enought amount of source active to sell
                 break  
                
             # IF YOU REACHED THIS POINT, THEN EXCHANGE HAS BEEN SUCCESSFULL. AND WE NEED TO GET OUT FROM while loop anyway.
@@ -404,27 +421,44 @@ class TraderEnvCnn(gym.Env):
         # CALCULATE REWARD
         total_wealth = info["Total_wealth"] # Calculate total wealth of Agents wallet. All converted to "USD"
         
-        # IF new wealth value > than previous
-        last_wealth = self.agents_account.get_last_wealth()
-        if total_wealth > last_wealth:
-            new_wealth_greater_reward = total_wealth - last_wealth
+        time_to_check_stats = (self.current_step % self.check_stats_every_steps == 0)
         
-        # save actual wealth value to compare it on the next step only    
-        self.agents_account.save_current_wealth(total_wealth) 
+        ########################
+        if time_to_check_stats:
+        
+            # IF new wealth value > than previous
+            last_wealth = self.agents_account.get_last_wealth()        
+            if penalty == 0:
+                #if action_type != 0:  # not used. because we check stats periodically. we don't care the type of actions during the period. 
+                if (total_wealth - last_wealth) > self.expected_increase_per_period: # if agent earned enough during the period               
+                    new_wealth_greater_reward =  self.reward_achievent 
+                    
+                else: # if wealth have not increased since the previous period
+                    penalty = self.penalty_broken_rules
+
+        
+            # save actual wealth value to compare it on the next step only    
+            self.agents_account.save_current_wealth(total_wealth) 
         
         
-        # CHECK IF TOTAL WEALTH HAS BEEn INCREASED BECAUSE OF AGENT ACTIONS. i.e. action_type == 1 or 2, not 0    
-        if ((action_type != 0) and (penalty == 0)):
+            # CHECK IF TOTAL WEALTH HAS BEEn INCREASED BECAUSE OF AGENT ACTIONS. i.e. action_type == 1 or 2, not 0    
             difference = self.agents_account.put_new_maximal_total_wealth_ever(total_wealth)
-            if difference > 0:
-                total_wealth_increased_reward = difference * 10
+            if penalty == 0:
+                #if action_type != 0: # not used. because we check stats periodically. we don't care the type of actions during the period. 
+                if difference > 0:                
+                    total_wealth_increased_reward = self.reward_achievent
+        ########################
+                    
+            
+                
             
             
 
         
         #reward = total_wealth + total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
         #reward =  total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
-        reward =  total_wealth   + penalty + new_wealth_greater_reward + total_wealth_increased_reward
+        #reward =   penalty  + new_wealth_greater_reward + total_wealth_increased_reward
+        reward = (penalty  + new_wealth_greater_reward + total_wealth_increased_reward) if time_to_check_stats else penalty
         
         terminated = False
         truncated = False # self.current_step >= self.max_episode_steps # experimental

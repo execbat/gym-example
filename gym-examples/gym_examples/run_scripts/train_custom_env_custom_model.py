@@ -112,11 +112,11 @@ class CustomEncoder(Encoder):
         
 
         conv_layers = [
-            nn.Conv2d(cfg.frame_stack, 32, 2, stride=1), 
+            nn.Conv2d(cfg.frame_stack, 32, 1, stride=1), 
             nonlinearity(cfg),
-            nn.Conv2d(32, 64, 2, stride=1),
+            nn.Conv2d(32, 64, 1, stride=1),
             nonlinearity(cfg),
-            nn.Conv2d(64, 64, 2, stride=1),
+            nn.Conv2d(64, 64, 1, stride=1),
             nonlinearity(cfg),            
         ]
         

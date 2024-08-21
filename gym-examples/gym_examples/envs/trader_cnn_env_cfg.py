@@ -10,11 +10,13 @@ def get_trader_cnn_env_cfg(argv=None):
     cfg.algo = 'APPO'
     cfg.use_rnn = True
     
-    cfg.policy_workers_per_policy = 2
-    cfg.recurrence = -1
+    cfg.num_workers = 8  # 4
+    cfg.num_envs_per_worker = 4 # 2
+    cfg.policy_workers_per_policy = 4
+    
     
     cfg.with_vtrace = False
-    cfg.batch_size = 256
+    cfg.batch_size = 1024
     cfg.save_every_sec = 60
     cfg.experiment = 'example_gymnasium_trader_cnn'
     
@@ -33,11 +35,12 @@ def get_trader_cnn_env_cfg(argv=None):
     cfg.rnn_type = "lstm"
     cfg.decoder_mlp_layers = [512, 512]
     
-    cfg.kl_loss_coeff = 0.0  # 0.0 Highly recommended for environments with continuous action  spaces. (default: 0.0)
-    cfg.ppo_clip_ratio = 0.1 # 0.1
-    cfg.ppo_clip_value = 1.0 # 1.0
+    #cfg.kl_loss_coeff = 0.0  # 0.0 Highly recommended for environments with continuous action  spaces. (default: 0.0)
+    #cfg.ppo_clip_ratio = 0.2 # 0.1
+    #cfg.ppo_clip_value = 1.0 # 1.0
+    #cfg.value_loss_coeff =  0.6 # 0.5
     
-    cfg.shuffle_minibatches = True
+    #cfg.shuffle_minibatches = False
     
 
     return cfg

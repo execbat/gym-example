@@ -13,7 +13,7 @@ class CustomFrameStack(gym.Wrapper):
 
     def reset(self, *, seed=None, options=None):
         observation, info = self.env.reset(seed=seed, options=options)
-        self.frames[:] = 0  # Clear the frame buffer
+        # self.frames[:] = 0  # Clear the frame buffer
         self.frames[-1] = observation
         return self.frames, info
 
