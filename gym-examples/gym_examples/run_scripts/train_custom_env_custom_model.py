@@ -145,7 +145,7 @@ def make_custom_encoder(cfg: Config, obs_space: ObsSpace) -> Encoder:
     
 def make_gym_env_func(full_env_name, cfg=None, env_config=None, render_mode: Optional[str] = None):
     if full_env_name == "gym_examples/Trader-v1":
-        return CustomFrameStack(gym.make(full_env_name, render_mode=render_mode), n_frames = cfg.frame_stack)  
+        return CustomFrameStack(gym.make(full_env_name, render_mode=render_mode, rollout = cfg.rollout), n_frames = cfg.frame_stack)  
         #return gym.make(full_env_name, render_mode=render_mode) # making frame_stack with --frame_stack parameter ==5         
         
     return gym.make(full_env_name, render_mode=render_mode)    

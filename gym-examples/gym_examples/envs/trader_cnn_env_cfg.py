@@ -22,10 +22,10 @@ def get_trader_cnn_env_cfg(argv=None):
     
     # Custom parameters for the Trader environment
     #cfg.max_episode_length = 1000  # Adjust as necessary
-    cfg.learning_rate = 0.00001
+    cfg.learning_rate = 0.001
     cfg.num_envs_per_worker = 16
-    cfg.rollout = 64
-    cfg.recurrence = 64
+    cfg.rollout = 32
+    cfg.recurrence = 32
     cfg.gamma = 0.99
     cfg.max_grad_norm = 4.0 # 4.0
     cfg.exploration_loss_coeff = 0.003  # 0.003
@@ -35,8 +35,10 @@ def get_trader_cnn_env_cfg(argv=None):
     cfg.rnn_type = "lstm"
     cfg.decoder_mlp_layers = [512, 512]
     
+    cfg.exploration_loss = "symmetric_kl"
+    
     #cfg.kl_loss_coeff = 0.0  # 0.0 Highly recommended for environments with continuous action  spaces. (default: 0.0)
-    #cfg.ppo_clip_ratio = 0.2 # 0.1
+    #cfg.ppo_clip_ratio = 0.1 # 0.1
     #cfg.ppo_clip_value = 1.0 # 1.0
     #cfg.value_loss_coeff =  0.6 # 0.5
     

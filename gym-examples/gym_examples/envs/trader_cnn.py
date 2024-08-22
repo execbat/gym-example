@@ -173,8 +173,8 @@ class AgentsAccount:
         self.currency_names = currency_names
         self.num_of_currencies = len(self.currency_names)
         self.start_amount = start_amount 
-        self.maximal_total_wealth_ever = 0
-        self.last_total_wealth = 0
+        #self.maximal_total_wealth_ever = 0
+        #self.last_total_wealth = 0
         
         
         self.personal_currencies = dict()
@@ -243,7 +243,7 @@ class AgentsAccount:
 class TraderEnvCnn(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, size=5, buy_amount_max = 100):
+    def __init__(self, render_mode=None, size=5, buy_amount_max = 100, rollout = 32):
         super().__init__()
         self.current_step = 0
         
@@ -257,8 +257,13 @@ class TraderEnvCnn(gym.Env):
         self.reward_achievent = 10   
         
         # What need to DO
-        self.check_stats_every_steps = 100      # checking wallet score every n steps
-        self.expected_increase_per_period = 20 # if total wealth increased on this value in period of  self.check_stats_every_steps steps. then all good, else penalty 
+        self.check_stats_every_steps = rollout     # checking wallet score every n steps
+        self.expected_increase_per_period = 5 # if total wealth increased on this value in period of  self.check_stats_every_steps steps. then all good, else penalty 
+        
+        # do not edit
+        self.period_start_wealth = 0
+        self.period_planned_wealth = 0
+        
         
 
         # CREATING OBJECTS
@@ -351,7 +356,7 @@ class TraderEnvCnn(gym.Env):
         return observation, info
 
     def step(self, action):
-        self.current_step += 1 #experimental
+        
     
 
         action_type = int(action[0])
@@ -361,9 +366,31 @@ class TraderEnvCnn(gym.Env):
         
         penalty = 0
         deal_completed_reward = 0
-        forced_to_learn_reward = 0
-        total_wealth_increased_reward = 0
-        new_wealth_greater_reward = 0
+        #forced_to_learn_reward = 0
+        #total_wealth_increased_reward = 0
+        period_reward = 0
+        
+        # Variables for periodically checking agent behavior score
+        time_to_check_stats= False
+        time_to_set_goal = False
+        time_to_check_stats = (self.current_step % self.check_stats_every_steps == (self.check_stats_every_steps - 1))
+        time_to_set_goal = (self.current_step % self.check_stats_every_steps == 0)
+        
+        ##########################################
+        # Setting the goal for period
+
+                 
+        if time_to_set_goal:
+            # GET INFO. INFO CONTAINS total_wealth METRICS.
+            info = self._get_info() # {"Wallet": self.agents_account.get_wallet_state(), "Market": self.market.get_course_mtx(), "Total_wealth" : total_wealth}
+            # CALCULATE REWARD
+            total_wealth = info["Total_wealth"] # Calculate total wealth of Agents wallet. All converted to "USD"      
+
+            self.period_start_wealth = total_wealth
+            self.period_planned_wealth = total_wealth + self.expected_increase_per_period
+        ##############################################
+        
+        
         
         # Check wether source and target actives are share or currency
         source_is_share = not self.currency_names[source_curr_idx] in World_currencies_unique_list
@@ -419,35 +446,24 @@ class TraderEnvCnn(gym.Env):
         info = self._get_info() # {"Wallet": self.agents_account.get_wallet_state(), "Market": self.market.get_course_mtx(), "Total_wealth" : total_wealth}
         
         # CALCULATE REWARD
-        total_wealth = info["Total_wealth"] # Calculate total wealth of Agents wallet. All converted to "USD"
+        total_wealth = info["Total_wealth"] # Calculate total wealth of Agents wallet. All converted to "USD". Actual state!
         
-        time_to_check_stats = (self.current_step % self.check_stats_every_steps == 0)
+         
+        #if time_to_set_goal:
+        #    self.period_start_wealth = total_wealth
+        #    self.period_planned_wealth = total_wealth + self.expected_increase_per_period
+        
         
         ########################
-        if time_to_check_stats and penalty == 0:
-        
-            # IF new wealth value > than previous
-            last_wealth = self.agents_account.get_last_wealth()        
-            
-            #if action_type != 0:  # not used. because we check stats periodically. we don't care the type of actions during the period. 
-            if (total_wealth - last_wealth) > self.expected_increase_per_period: # if agent earned enough during the period               
-                new_wealth_greater_reward =  self.reward_achievent 
-                    
-            else: # if wealth have not increased since the previous period
-                penalty = self.penalty_broken_rules
-        
-            # save actual wealth value to compare it on the next step only    
-            self.agents_account.save_current_wealth(total_wealth) 
-        
-        
-        
-        
-            # CHECK IF TOTAL WEALTH HAS BEEn INCREASED BECAUSE OF AGENT ACTIONS. i.e. action_type == 1 or 2, not 0    
-            difference = self.agents_account.put_new_maximal_total_wealth_ever(total_wealth)
-            
-            #if action_type != 0: # not used. because we check stats periodically. we don't care the type of actions during the period. 
-            if difference > 0:                
-                total_wealth_increased_reward = self.reward_achievent
+        if time_to_check_stats:
+            def calc_period_score(start_val, planned_val, act_val):
+                plan_diff = planned_val - start_val
+                act_dif = act_val - start_val
+                return act_dif / plan_diff
+                
+            period_score_koef = calc_period_score(self.period_start_wealth, self.period_planned_wealth, total_wealth)
+            period_reward = period_score_koef * self.reward_achievent        
+
         ########################
                     
             
@@ -459,7 +475,8 @@ class TraderEnvCnn(gym.Env):
         #reward = total_wealth + total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
         #reward =  total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
         #reward =   penalty  + new_wealth_greater_reward + total_wealth_increased_reward
-        reward = (penalty  + new_wealth_greater_reward + total_wealth_increased_reward) if time_to_check_stats else penalty
+        #reward = (penalty  + new_wealth_greater_reward + total_wealth_increased_reward) if time_to_check_stats else penalty
+        reward = (penalty  + new_wealth_greater_reward) if time_to_check_stats else penalty
         
         terminated = False
         truncated = False # self.current_step >= self.max_episode_steps # experimental
@@ -468,6 +485,8 @@ class TraderEnvCnn(gym.Env):
         self.market.update_cources()        
         observation = self._get_obs()
         
+        
+        self.current_step += 1 
         return observation, reward, terminated, truncated, info 
         
 
