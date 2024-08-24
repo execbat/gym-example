@@ -452,7 +452,11 @@ class TraderEnvCnn(gym.Env):
         #reward =  total_wealth_increased_reward + penalty + deal_completed_reward + forced_to_learn_reward # TOTAL STEP REWARD
         #reward =   penalty  + new_wealth_greater_reward + total_wealth_increased_reward
         #reward = (penalty  + new_wealth_greater_reward + total_wealth_increased_reward) if time_to_check_stats else penalty
-        reward = (penalty  + period_reward) if time_to_check_stats else penalty
+        
+        if penalty != 0:
+            reward = penalty
+        else:    
+            reward = period_reward if time_to_check_stats else 0
         #reward = (period_reward) if time_to_check_stats else 0
         
         terminated = False

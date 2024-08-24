@@ -45,12 +45,12 @@ def get_trader_cnn_env_cfg(argv=None):
     #cfg.shuffle_minibatches = False
     
     # REWARDS AND PENALTIES
-    cfg.
+    
     
     # expected increase of wallet per period. period == rollout
-    cfg.expected_increase_per_period = 5
+    cfg.expected_increase_per_period = 5 # in "USD"
     cfg.reward_period = 10
-    cfg.penalty_broken_rules = -1
+    cfg.penalty_broken_rules = -10
     
 
     return cfg
