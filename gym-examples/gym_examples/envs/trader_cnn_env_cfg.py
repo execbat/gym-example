@@ -50,7 +50,7 @@ def get_trader_cnn_env_cfg(argv=None):
     
     # expected increase of wallet per period. period == rollout
     cfg.expected_increase_per_period = 10 # in "USD"
-    cfg.reward_period = 10 # fixed  value of reward
+    cfg.reward_period = 10 # fixed value of reward for period
     cfg.penalty_broken_rules = -10
     
 

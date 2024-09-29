@@ -15,5 +15,5 @@ register(
 register(
      id="gym_examples/Trader-v1",
      entry_point="gym_examples.envs:TraderEnvCnn",
-     max_episode_steps=10000,
+     max_episode_steps=1000,
 )

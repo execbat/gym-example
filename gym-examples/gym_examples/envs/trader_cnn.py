@@ -444,7 +444,7 @@ class TraderEnvCnn(gym.Env):
         ########################
         if time_to_check_stats:                
             period_score_koef = self.calc_period_score(act_val = total_wealth)
-            period_reward = period_score_koef * self.reward_period 
+            period_reward = period_score_koef * self.reward_period if (period_score_koef < 0) else 10 * period_score_koef * self.reward_period # make 10x reward if result is positive
         ########################
                     
         
@@ -453,11 +453,11 @@ class TraderEnvCnn(gym.Env):
         #reward =   penalty  + new_wealth_greater_reward + total_wealth_increased_reward
         #reward = (penalty  + new_wealth_greater_reward + total_wealth_increased_reward) if time_to_check_stats else penalty
         
-        if penalty != 0:
-            reward = penalty
-        else:    
-            reward = (period_reward + penalty) if time_to_check_stats else penalty
-        #reward = (period_reward) if time_to_check_stats else 0
+        #if penalty != 0:
+        #    reward = penalty
+        #else:    
+        #    reward = (period_reward + penalty) if time_to_check_stats else penalty
+        reward = period_reward + penalty
         
         terminated = False
         truncated = False # self.current_step >= self.max_episode_steps # experimental
