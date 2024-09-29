@@ -148,7 +148,7 @@ def make_gym_env_func(full_env_name, cfg=None, env_config=None, render_mode: Opt
         return CustomFrameStack(
                                 gym.make(full_env_name, 
                                         render_mode=render_mode, 
-                                        rollout = cfg.rollout, 
+                                        period_length = cfg.period_length, 
                                         expected_increase_per_period = cfg.expected_increase_per_period,
                                         reward_period = cfg.reward_period,
                                         penalty_broken_rules = cfg.penalty_broken_rules

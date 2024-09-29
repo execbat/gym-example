@@ -243,7 +243,7 @@ class AgentsAccount:
 class TraderEnvCnn(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, size=5, buy_amount_max = 100, rollout = 32, expected_increase_per_period = 5, reward_period = 10, penalty_broken_rules = -1):
+    def __init__(self, render_mode=None, size=5, buy_amount_max = 100, period_length = 32, expected_increase_per_period = 5, reward_period = 10, penalty_broken_rules = -1):
         super().__init__()
         self.current_step = 0
         
@@ -257,7 +257,7 @@ class TraderEnvCnn(gym.Env):
         self.reward_period = reward_period        # reward for achievement of goal of current period
         
         # What need to DO
-        self.check_stats_every_steps = rollout     # checking wallet score every n steps
+        self.check_stats_every_steps = period_length     # checking wallet score every n steps
         self.expected_increase_per_period = expected_increase_per_period # if total wealth increased on this value in period of  self.check_stats_every_steps steps. then all good, else penalty 
         
         # do not edit
@@ -456,7 +456,7 @@ class TraderEnvCnn(gym.Env):
         if penalty != 0:
             reward = penalty
         else:    
-            reward = period_reward if time_to_check_stats else 0
+            reward = (period_reward + penalty) if time_to_check_stats else penalty
         #reward = (period_reward) if time_to_check_stats else 0
         
         terminated = False
