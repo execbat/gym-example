@@ -1,6 +1,6 @@
 # Training RL policy to take actions in simulated Stock Market environment
 
-This repository provides the scenario of how to solve the problem of automated trading. Stock market environment built on engine of OpenAI's Gymnasium environment which emulates behavior of real stock marker environment. Integration with Sample Factory implemented for efficient training of reinforcement learning (RL) policy based on asynchronoius proxomal policy optimisation (APPO). Trained RL policy takes actions to increase balance of personal account.
+This repository provides the scenario of how to solve the problem of automated trading. Stock market environment built on engine of OpenAI's Gymnasium environment which emulates behavior of real stock market environment. Integration with Sample Factory implemented for efficient training of reinforcement learning (RL) policy based on asynchronous proximal policy optimization (APPO). Trained RL policy takes actions to increase balance of personal account.
 
 ## Overview
 
